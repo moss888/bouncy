@@ -146,6 +146,16 @@ function move_y(player)
         player.stored_speed_y = 0
         player.dump_stored_speed_y = false
 
+        local abs_speed = abs(player.speed_y)
+        if (abs_speed > gravity) then
+            if (abs_speed < (stored_energy_limit / 3)) then
+                sfx(0, -1, 0, 2)
+            elseif (abs_speed >= (stored_energy_limit / 3) and abs_speed < ((stored_energy_limit / 3)*2)) then
+                sfx(0, -1, 0, 5)
+            elseif (abs_speed >= ((stored_energy_limit / 3)*2)) then
+                sfx(0, -1, 0, 10)
+            end
+        end
     end
 
     if (player.speed_y > 0 or player.speed_y < 0) then
@@ -197,6 +207,16 @@ function move_x(player)
         player.speed_x = player.speed_x + player.stored_speed_x
         player.stored_speed_x = 0
         player.dump_stored_speed_x = false
+        local abs_speed = abs(player.speed_x)
+        if (abs_speed > gravity) then
+            if (abs_speed < (stored_energy_limit / 3)) then
+                sfx(0, -1, 18, 2)
+            elseif (abs_speed >= (stored_energy_limit / 3) and abs_speed < ((stored_energy_limit / 3)*2)) then
+                sfx(0, -1, 18, 5)
+            elseif (abs_speed >= ((stored_energy_limit / 3)*2)) then
+                sfx(0, -1, 18, 10)
+            end
+        end
     end
 
     if (player.speed_x > 0 or player.speed_x < 0) then
@@ -223,7 +243,7 @@ function move_x(player)
                 dynamic_bounce_loss_ratio = dynamic_bounce_loss_ratio - debounce_ratio
             end
             player.stored_speed_x = (player.stored_speed_x - stored_energy_x) * dynamic_bounce_loss_ratio
-            
+
             if (abs(player.stored_speed_x) > stored_energy_limit) then
                 player.stored_speed_x = stored_energy_limit * sign(player.stored_speed_x)
             end
