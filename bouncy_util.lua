@@ -45,11 +45,11 @@ function check_map_collision_y(obj, collision_flag, resolution)
     }
 
     if (direction == -1) then
-        p1.x, p1.y, p1.height_mod = obj.x, obj.y, 0
-        p2.x, p2.y, p2.height_mod = obj.x + obj.width, obj.y, 0
+        p1.x, p1.y, p1.height_mod = obj.x + 1, obj.y, 0
+        p2.x, p2.y, p2.height_mod = obj.x + obj.width - 1, obj.y, 0
     elseif (direction == 1) then
-        p1.x, p1.y, p1.height_mod = obj.x, obj.y, (obj.height - resolution)
-        p2.x, p2.y, p2.height_mod = obj.x + obj.width, obj.y, (obj.height - resolution)
+        p1.x, p1.y, p1.height_mod = obj.x + 1, obj.y, (obj.height - resolution)
+        p2.x, p2.y, p2.height_mod = obj.x + obj.width - 1, obj.y, (obj.height - resolution)
     end
 
     for i = 0, distance, resolution do
@@ -87,11 +87,11 @@ function check_map_collision_x(obj, collision_flag, resolution)
     }
 
     if (direction == -1) then
-        p1.x, p1.y, p1.width_mod = obj.x, obj.y + (resolution * 2), 0
-        p2.x, p2.y, p2.width_mod = obj.x, (obj.y + obj.height - (resolution * 2)), 0
+        p1.x, p1.y, p1.width_mod = obj.x, obj.y + 1, 0
+        p2.x, p2.y, p2.width_mod = obj.x, (obj.y + obj.height - 1), 0
     elseif (direction == 1) then
-        p1.x, p1.y, p1.width_mod = obj.x, obj.y + (resolution * 2), obj.width - resolution
-        p2.x, p2.y, p2.width_mod = obj.x, (obj.y + obj.height - (resolution * 2)), obj.width
+        p1.x, p1.y, p1.width_mod = obj.x, obj.y + 1, obj.width - 0.5
+        p2.x, p2.y, p2.width_mod = obj.x, (obj.y + obj.height - 1), obj.width - 0.5
     end
 
     for i = 0, distance, resolution do

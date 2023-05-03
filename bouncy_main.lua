@@ -16,6 +16,7 @@ function _init()
     friction = 0.4
     gravity = 0.3
     resolution = 0.1
+    camera_offset_x = 0
     player = {
         x = 64,
         y = 112,
@@ -92,15 +93,15 @@ function set_ball_sprite_index()
     local y_squish_ball_index = get_y_squish_ball_index()
 
     if ((x_squish_ball_index > -1 and player.colliding_x) or (y_squish_ball_index > -1 and player.colliding_y)) then
-        if (x_squish_ball_index > -1) then
-            player.ball_sprite_index = x_squish_ball_indexes[x_squish_ball_index]
-            if (dx < x) then
-                player.ball_sprite_flip_x = true
-            end
-        else
+        if (y_squish_ball_index > -1) then
             player.ball_sprite_index = y_squish_ball_indexes[y_squish_ball_index]
             if (sign(player.stored_speed_y) == 1) then
                 player.ball_sprite_flip_y = true
+            end
+        else
+            player.ball_sprite_index = x_squish_ball_indexes[x_squish_ball_index]
+            if (dx < x) then
+                player.ball_sprite_flip_x = true
             end
         end
     else
@@ -150,9 +151,9 @@ function move_y(player)
         if (abs_speed > gravity) then
             if (abs_speed < (stored_energy_limit / 3)) then
                 sfx(0, -1, 0, 2)
-            elseif (abs_speed >= (stored_energy_limit / 3) and abs_speed < ((stored_energy_limit / 3)*2)) then
+            elseif (abs_speed >= (stored_energy_limit / 3) and abs_speed < ((stored_energy_limit / 3) * 2)) then
                 sfx(0, -1, 0, 5)
-            elseif (abs_speed >= ((stored_energy_limit / 3)*2)) then
+            elseif (abs_speed >= ((stored_energy_limit / 3) * 2)) then
                 sfx(0, -1, 0, 10)
             end
         end
@@ -198,8 +199,10 @@ end
 function move_x(player)
 
     if (player.stored_speed_x ~= 0) then
-        if (sign(player.speed_x) == sign(player.stored_speed_x) or player.speed_x == 0 or player.colliding_x == false) then
+        if (sign(player.speed_x) == sign(player.stored_speed_x) or player.speed_x == 0) then
             player.dump_stored_speed_x = true
+        elseif(sign(player.speed_x) ~= sign(player.stored_speed_x) and player.speed_x > 1) then
+            player.stored_speed_x = 0
         end
     end
 
@@ -211,9 +214,9 @@ function move_x(player)
         if (abs_speed > gravity) then
             if (abs_speed < (stored_energy_limit / 3)) then
                 sfx(0, -1, 18, 2)
-            elseif (abs_speed >= (stored_energy_limit / 3) and abs_speed < ((stored_energy_limit / 3)*2)) then
+            elseif (abs_speed >= (stored_energy_limit / 3) and abs_speed < ((stored_energy_limit / 3) * 2)) then
                 sfx(0, -1, 18, 5)
-            elseif (abs_speed >= ((stored_energy_limit / 3)*2)) then
+            elseif (abs_speed >= ((stored_energy_limit / 3) * 2)) then
                 sfx(0, -1, 18, 10)
             end
         end
@@ -298,12 +301,16 @@ function _draw()
 end
 
 function draw_map()
-    if (player.x > 127) then
-        map_offset = flr(player.x / 128)
-        camera(((128 * map_offset) - 8), 0)
-    else
-        camera(0, 0)
+    if (player.x < 128) then
+        camera_offset_x = 0
+    elseif (player.x >= 128 and player.x < 208) then
+        camera_offset_x = 120
+    elseif (player.x >= 208 and player.x <= 980) then
+        camera_offset_x = (player.x - 84)
+    elseif (player.x > 980) then
+        camera_offset_x = 896
     end
+    camera(camera_offset_x, 0)
     map()
 end
 
