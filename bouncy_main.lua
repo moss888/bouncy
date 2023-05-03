@@ -16,7 +16,8 @@ function _init()
     friction = 0.4
     gravity = 0.3
     resolution = 0.1
-    camera_offset_x = 0
+    camera_x_front_boundry = 212
+    camera_x_back_boundry = 0
     player = {
         x = 64,
         y = 112,
@@ -201,7 +202,7 @@ function move_x(player)
     if (player.stored_speed_x ~= 0) then
         if (sign(player.speed_x) == sign(player.stored_speed_x) or player.speed_x == 0) then
             player.dump_stored_speed_x = true
-        elseif(sign(player.speed_x) ~= sign(player.stored_speed_x) and player.speed_x > 1) then
+        elseif(sign(player.speed_x) ~= sign(player.stored_speed_x) and abs(player.speed_x) > 1) then
             player.stored_speed_x = 0
         end
     end
@@ -303,13 +304,28 @@ end
 function draw_map()
     if (player.x < 128) then
         camera_offset_x = 0
-    elseif (player.x >= 128 and player.x < 208) then
+    elseif (player.x >= 128 and player.x < 164) then
         camera_offset_x = 120
-    elseif (player.x >= 208 and player.x <= 980) then
+    elseif (player.x > camera_x_front_boundry and player.x <= 980) then
         camera_offset_x = (player.x - 84)
+        camera_x_front_boundry = player.x
+        camera_x_back_boundry = camera_x_front_boundry - 40
+    elseif (player.x < camera_x_back_boundry and player.x >= 128) then
+        camera_offset_x = (player.x - 44)
+        camera_x_back_boundry = player.x
+        camera_x_front_boundry = camera_x_back_boundry + 40
     elseif (player.x > 980) then
         camera_offset_x = 896
     end
+    
+    log('back:'..camera_x_back_boundry..' front:'..camera_x_front_boundry)
+    if(camera_x_front_boundry < 212) then
+        camera_x_front_boundry = 212
+    end
+    if(camera_x_back_boundry < 0) then
+        camera_x_front_boundry = 0
+    end
+    
     camera(camera_offset_x, 0)
     map()
 end
