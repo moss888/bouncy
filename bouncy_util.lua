@@ -35,6 +35,27 @@ function sign(x)
     return x > 0 and 1 or x < 0 and -1 or 0
 end
 
+function tile_centers_at_corners(x1, y1, x2, y2, x3, y3, x4, y4)
+    local corners = {}
+    corners[1] = position_to_maptile_coord(x1, y1)
+    corners[2] = position_to_maptile_coord(x2, y2)
+    corners[3] = position_to_maptile_coord(x3, y3)
+    corners[4] = position_to_maptile_coord(x4, y4)
+    corners[1].center_x = (corners[1].x*8) + 4
+    corners[1].center_y = (corners[1].y*8) + 4
+    corners[2].center_x = (corners[2].x*8) + 4
+    corners[2].center_y = (corners[2].y*8) + 4
+    corners[3].center_x = (corners[3].x*8) + 4
+    corners[3].center_y = (corners[3].y*8) + 4
+    corners[4].center_x = (corners[4].x*8) + 4
+    corners[4].center_y = (corners[4].y*8) + 4
+    corners[1].flag = fget(mget(corners[1].x,corners[1].y))
+    corners[2].flag = fget(mget(corners[2].x,corners[2].y))
+    corners[3].flag = fget(mget(corners[3].x,corners[3].y))
+    corners[4].flag = fget(mget(corners[4].x,corners[4].y))
+    return corners
+end
+
 function check_map_collision_y(obj, collision_flag, resolution)
     local result = {
         collision = false
@@ -108,8 +129,8 @@ function check_map_collision_x(obj, collision_flag, resolution)
     }
 
     if (direction == -1) then
-        p1.x, p1.y, p1.width_mod = obj.x, obj.y + 2, 0
-        p2.x, p2.y, p2.width_mod = obj.x, (obj.y + obj.height - 2), 0
+        p1.x, p1.y, p1.width_mod = obj.x + 0.5, obj.y + 2, 0
+        p2.x, p2.y, p2.width_mod = obj.x + 0.5, (obj.y + obj.height - 2), 0
     elseif (direction == 1) then
         p1.x, p1.y, p1.width_mod = obj.x, obj.y + 2, obj.width - 0.5
         p2.x, p2.y, p2.width_mod = obj.x, (obj.y + obj.height - 2), obj.width - 0.5

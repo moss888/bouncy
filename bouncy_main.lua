@@ -2,6 +2,7 @@
 function _init()
     log('bouncy init called')
     terrain_flag = 0x2
+    bubble_power_enabled = false
     hazard_flag = 0x4
     current_checkpoint = -1
     rolling_ball_index_count = 1
@@ -17,8 +18,10 @@ function _init()
     vertical_add_energy_limit = 8
     horizontal_add_energy_limit = 5
     stored_energy_limit = 8
-    friction = 0.4
+    ground_friction = 0.3
+    air_friction = 0.2
     gravity = 0.3
+    relativity_gravity = 0.1
     resolution = 0.1
     camera_x_front_boundry = 212
     camera_x_back_boundry = 0
@@ -65,6 +68,12 @@ function get_user_input(player)
         player.speed_y = player.speed_y + vertical_add_energy
         if (player.speed_y >= vertical_add_energy_limit) then
             player.speed_y = vertical_add_energy_limit
+        end
+    end
+    if btn(2) and bubble_power_enabled then
+        player.speed_y = player.speed_y - (gravity+resolution)
+        if (player.speed_y <= (vertical_add_energy_limit * -1)) then
+            player.speed_y = vertical_add_energy_limit * -1
         end
     end
     if btn(4) or btn(5) then
@@ -177,7 +186,24 @@ function move_y(player)
 
     if (collision_result.collision == true) then
 
-        if (collision_result.flag & terrain_flag > 0) then
+        -- check basic hazards with a smaller hitbox
+        if (collision_result.flag & hazard_flag > 0) then
+            tiles = tile_centers_at_corners(player.x, player.y, player.x + 8, player.y, player.x, player.y + 8,
+                player.x + 8, player.y + 8)
+            for _, tile in pairs(tiles) do
+                if ((tile.flag & hazard_flag) > 0) then
+                    hazard_collides = box_collision(player.x + 4, player.y + 4, player.width, player.height,
+                        tile.center_x, tile.center_y, 4, 4)
+                    if (hazard_collides) then
+                        player.hazard_hit = true
+                        hazard_hit_animation = 0
+                        break
+                    end
+                end
+            end
+            player.colliding_y = false
+            player.y = player.dy
+        elseif (collision_result.flag & terrain_flag > 0) then
             player.colliding_y = true
             player.y = collision_result.collision_y
             local stored_energy_y_after_collision = player.speed_y
@@ -197,9 +223,6 @@ function move_y(player)
             end
             player.dy = player.y
             player.speed_y = 0
-        elseif (collision_result.flag & hazard_flag > 0) then
-            player.hazard_hit = true
-            hazard_hit_animation = 0
         end
     else
         player.colliding_y = false
@@ -252,7 +275,6 @@ function move_x(player)
 
         local stored_energy_x = player.dx - player.x
         if (stored_energy_x ~= 0) then
-
             local dynamic_bounce_loss_ratio = 1
             if (player.debounce) then
                 dynamic_bounce_loss_ratio = dynamic_bounce_loss_ratio - debounce_ratio
@@ -273,20 +295,30 @@ function move_x(player)
 end
 
 function apply_friction(player)
-    if (player.speed_x > 0) then
-        player.speed_x = player.speed_x - friction
-        if (player.speed_x < 0) then
-            player.speed_x = 0
-        end
+    local friction = ground_friction
+    if (player.colliding_y == false) then
+        friction = air_friction
     end
-    if (player.speed_x < 0) then
-        player.speed_x = player.speed_x + friction
+    
         if (player.speed_x > 0) then
-            player.speed_x = 0
+            player.speed_x = player.speed_x - friction
+            if (player.speed_x < 0) then
+                player.speed_x = 0
+            end
         end
-    end
+        if (player.speed_x < 0) then
+            player.speed_x = player.speed_x + friction
+            if (player.speed_x > 0) then
+                player.speed_x = 0
+            end
+        end
+    
 
-    player.speed_y = player.speed_y + gravity
+    local quantum_gravity = gravity
+    if(player.speed_x>5) then
+        quantum_gravity = relativity_gravity
+    end
+    player.speed_y = player.speed_y + quantum_gravity
 
     if (player.speed_y > vertical_add_energy_limit) then
         player.speed_y = vertical_add_energy_limit
@@ -351,10 +383,10 @@ function process_hazard_hit_animation()
     end
     if (hazard_hit_animation > 5 and hazard_hit_animation < 10) then
         pal(8, 2)
-        
+
     elseif (hazard_hit_animation > 10 and hazard_hit_animation < 15) then
         pal(2, 5)
-        
+
     elseif (hazard_hit_animation > 20) then
         pal(8, 1)
     end
@@ -366,6 +398,8 @@ function _draw()
     if (player.hazard_hit == false) then
         if (player.debounce) then
             pal(8, 9)
+        elseif btn(2) and bubble_power_enabled then
+            pal(8, 12)
         else
             pal()
         end
@@ -390,9 +424,9 @@ function draw_checkpoints()
 end
 
 function draw_map()
-    if (player.x < 128) then
+    if (player.x < 127) then
         camera_offset_x = 0
-    elseif (player.x >= 128 and player.x < 164) then
+    elseif (player.x >= 127 and player.x < 164) then
         camera_offset_x = 120
     elseif (player.x > camera_x_front_boundry and player.x <= 980) then
         camera_offset_x = (player.x - 84)
