@@ -1,8 +1,12 @@
 -- pico8_import utilities.lua
 function _init()
     log('bouncy init called')
-    terrain_flag = 2
+    terrain_flag = 0x2
+    hazard_flag = 0x4
+    current_checkpoint = -1
     rolling_ball_index_count = 1
+    checkpoint_locations = {{136, 24}}
+    checkpoint_sprites = {73, 74}
     rolling_ball_indexes = {7, 8, 9, 10}
     x_squish_ball_indexes = {27, 28, 29}
     y_squish_ball_indexes = {11, 12, 13}
@@ -18,7 +22,9 @@ function _init()
     resolution = 0.1
     camera_x_front_boundry = 212
     camera_x_back_boundry = 0
-    player = {
+    hazard_hit_animation = 0
+    player_defaults = {
+        hazard_hit = false,
         x = 64,
         y = 112,
         dx = 64,
@@ -37,8 +43,8 @@ function _init()
         colliding_x = false,
         colliding_y = false,
         debounce = false
-
     }
+    player = shallow_copy(player_defaults)
 
 end
 
@@ -167,29 +173,34 @@ function move_y(player)
         end
     end
 
-    local collision_result = check_map_collision_y(player, terrain_flag, resolution)
+    local collision_result = check_map_collision_y(player, terrain_flag | hazard_flag, resolution)
 
     if (collision_result.collision == true) then
 
-        player.colliding_y = true
-        player.y = collision_result.collision_y
-        local stored_energy_y_after_collision = player.speed_y
-        if (player.speed_y > gravity or player.speed_y < 0) then
+        if (collision_result.flag & terrain_flag > 0) then
+            player.colliding_y = true
+            player.y = collision_result.collision_y
+            local stored_energy_y_after_collision = player.speed_y
+            if (player.speed_y > gravity or player.speed_y < 0) then
 
-            local dynamic_bounce_loss_ratio = bounce_loss_ratio
-            if (player.debounce) then
-                dynamic_bounce_loss_ratio = dynamic_bounce_loss_ratio - debounce_ratio
-            end
-            player.stored_speed_y = (player.stored_speed_y - player.speed_y) * dynamic_bounce_loss_ratio
+                local dynamic_bounce_loss_ratio = bounce_loss_ratio
+                if (player.debounce) then
+                    dynamic_bounce_loss_ratio = dynamic_bounce_loss_ratio - debounce_ratio
+                end
+                player.stored_speed_y = (player.stored_speed_y - player.speed_y) * dynamic_bounce_loss_ratio
 
-            if (abs(player.stored_speed_y) > stored_energy_limit) then
-                player.stored_speed_y = (stored_energy_limit * sign(player.stored_speed_y))
+                if (abs(player.stored_speed_y) > stored_energy_limit) then
+                    player.stored_speed_y = (stored_energy_limit * sign(player.stored_speed_y))
+                end
+            else
+                player.dump_stored_speed_y = true
             end
-        else
-            player.dump_stored_speed_y = true
+            player.dy = player.y
+            player.speed_y = 0
+        elseif (collision_result.flag & hazard_flag > 0) then
+            player.hazard_hit = true
+            hazard_hit_animation = 0
         end
-        player.dy = player.y
-        player.speed_y = 0
     else
         player.colliding_y = false
         player.y = player.dy
@@ -202,7 +213,7 @@ function move_x(player)
     if (player.stored_speed_x ~= 0) then
         if (sign(player.speed_x) == sign(player.stored_speed_x) or player.speed_x == 0) then
             player.dump_stored_speed_x = true
-        elseif(sign(player.speed_x) ~= sign(player.stored_speed_x) and abs(player.speed_x) > 1) then
+        elseif (sign(player.speed_x) ~= sign(player.stored_speed_x) and abs(player.speed_x) > 1) then
             player.stored_speed_x = 0
         end
     end
@@ -229,7 +240,7 @@ function move_x(player)
 
     set_ball_sprite_index()
 
-    local collision_result = check_map_collision_x(player, terrain_flag, resolution)
+    local collision_result = check_map_collision_x(player, terrain_flag | hazard_flag, resolution)
 
     if (collision_result.collision == true) then
         player.colliding_x = true
@@ -282,23 +293,100 @@ function apply_friction(player)
     end
 end
 
+function non_physical_collisions()
+    for i = 1, #checkpoint_locations, 1 do
+        if (i ~= current_checkpoint) then
+            if (box_collision(player.x, player.y, player.width, player.height, checkpoint_locations[i][1],
+                checkpoint_locations[i][2], 8, 8)) then
+                sfx(1)
+                current_checkpoint = i
+            end
+        end
+    end
+
+end
+
+function reset_player()
+    pal()
+    player = shallow_copy(player_defaults)
+    camera_x_front_boundry = 212
+    camera_x_back_boundry = 0
+    hazard_hit_animation = 0
+    if (current_checkpoint > 0) then
+        checkpoint = checkpoint_locations[current_checkpoint]
+        player.x = checkpoint[1]
+        player.y = checkpoint[2]
+        player.dx = checkpoint[1]
+        player.dy = checkpoint[2]
+        if (current_checkpoint == 1) then
+            camera_x_front_boundry = 212
+            camera_x_back_boundry = 0
+        else
+            camera_x_front_boundry = player.x + 20
+            camera_x_back_boundry = player.x - 20
+        end
+    end
+end
+
 function _update()
     update_framecount()
-    get_user_input(player)
-    move_x(player)
-    move_y(player)
-    apply_friction(player)
+    if (player.hazard_hit) then
+        hazard_hit_animation = hazard_hit_animation + 1
+        if (hazard_hit_animation > 30) then
+            reset_player()
+        end
+    else
+        get_user_input(player)
+        move_x(player)
+        move_y(player)
+        non_physical_collisions()
+        apply_friction(player)
+    end
+
+end
+
+function process_hazard_hit_animation()
+    if (hazard_hit_animation == 5) then
+        sfx(2)
+    end
+    if (hazard_hit_animation > 5 and hazard_hit_animation < 10) then
+        pal(8, 2)
+        
+    elseif (hazard_hit_animation > 10 and hazard_hit_animation < 15) then
+        pal(2, 5)
+        
+    elseif (hazard_hit_animation > 20) then
+        pal(8, 1)
+    end
 end
 
 function _draw()
     cls()
     draw_map()
-    if (player.debounce) then
-        pal(8, 9)
-    else
-        pal()
+    if (player.hazard_hit == false) then
+        if (player.debounce) then
+            pal(8, 9)
+        else
+            pal()
+        end
     end
+    draw_checkpoints()
     spr(player.ball_sprite_index, player.x, player.y, 1, 1, player.ball_sprite_flip_x, player.ball_sprite_flip_y)
+
+    if (player.hazard_hit) then
+        process_hazard_hit_animation()
+    end
+
+end
+
+function draw_checkpoints()
+    for i, checkpoint in ipairs(checkpoint_locations) do
+        if (current_checkpoint == i) then
+            spr(checkpoint_sprites[2], checkpoint[1], checkpoint[2], 1, 1)
+        else
+            spr(checkpoint_sprites[1], checkpoint[1], checkpoint[2], 1, 1)
+        end
+    end
 end
 
 function draw_map()
@@ -317,15 +405,15 @@ function draw_map()
     elseif (player.x > 980) then
         camera_offset_x = 896
     end
-    
-    log('back:'..camera_x_back_boundry..' front:'..camera_x_front_boundry)
-    if(camera_x_front_boundry < 212) then
+
+    -- log('back:' .. camera_x_back_boundry .. ' front:' .. camera_x_front_boundry)
+    if (camera_x_front_boundry < 212) then
         camera_x_front_boundry = 212
     end
-    if(camera_x_back_boundry < 0) then
+    if (camera_x_back_boundry < 0) then
         camera_x_front_boundry = 0
     end
-    
+
     camera(camera_offset_x, 0)
     map()
 end
