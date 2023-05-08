@@ -181,7 +181,7 @@ function handle_slope_collision_left_y(collision_result)
     local tile_max_x = (tile.x * 8) + 8
     local tile_min_y = (tile.y * 8)
     local x_speed = player.speed_x
-    if (x_speed < 4 or player.debounce) then
+    if (x_speed < 4 or player.debounce or btn(3)) then
         if ((player.x + 0) >= (tile_min_x) and (player.x + 0) <= tile_max_x) then
 
             local block_x = ((player.x + 0) - tile_min_x)
@@ -192,11 +192,15 @@ function handle_slope_collision_left_y(collision_result)
             player.y = tile_min_y + block_x - 4
             player.dy = player.y
         end
+        if (btn(3)) then
+            player.speed_x = player.speed_x + 0.7
+        end
     else
         player.y = player.dy
         player.stored_speed_y = 0
     end
     player.x = player.dx
+  
 end
 
 function handle_slope_collision_left_x(collision_result)
@@ -214,7 +218,7 @@ function handle_slope_collision_left_x(collision_result)
     local tile_max_x = (tile.x * 8) + 8
     local tile_min_y = (tile.y * 8)
     local x_speed = player.speed_x
-    if (x_speed < 4 or player.debounce) then
+    if (x_speed < 4 or player.debounce or btn(3)) then
         if ((player.x + 0) >= tile_min_x and (player.x + 0) <= tile_max_x) then
             local block_x = ((player.x + 0) - tile_min_x)
             if (block_x < 0) then
@@ -223,11 +227,15 @@ function handle_slope_collision_left_x(collision_result)
             common_slope_y_calculation()
             player.y = tile_min_y + block_x - 8
         end
+        if (btn(3)) then
+            player.speed_x = player.speed_x + 0.7
+        end
     else
         player.y = player.dy
         player.stored_speed_y = 0
     end
     player.x = player.dx
+  
 end
 
 function common_slope_y_calculation()
@@ -255,7 +263,7 @@ function handle_slope_collision_right_y(collision_result)
     local tile_max_x = (tile.x * 8) + 8
     local tile_max_y = (tile.y * 8) + 8
     local x_speed = player.speed_x
-    if (x_speed > -4 or player.debounce) then
+    if (x_speed > -4 or player.debounce or btn(3)) then
         if ((player.x + 8) >= tile_min_x and (player.x + 8) <= tile_max_x) then
             local block_x = ((player.x + 8) - tile_min_x)
             if (block_x < 0) then
@@ -265,13 +273,16 @@ function handle_slope_collision_right_y(collision_result)
             player.y = tile_max_y - block_x - 4
             player.dy = player.y
         end
+        if (btn(3)) then
+            player.speed_x = player.speed_x - 0.7
+        end
     else
         player.y = player.dy
         player.stored_speed_y = 0
     end
+    player.x = player.dx
    
-        player.x = player.dx
-   
+
 end
 
 function handle_slope_collision_right_x(collision_result)
@@ -289,7 +300,7 @@ function handle_slope_collision_right_x(collision_result)
     local tile_max_x = (tile.x * 8) + 8
     local tile_max_y = (tile.y * 8) + 8
     local x_speed = player.speed_x
-    if (x_speed > -4 or player.debounce) then
+    if (x_speed > -4 or player.debounce or btn(3)) then
         if ((player.x + 8) >= tile_min_x and (player.x + 8) <= tile_max_x) then
             local block_x = ((player.x + 8) - tile_min_x)
             if (block_x < 0) then
@@ -297,6 +308,9 @@ function handle_slope_collision_right_x(collision_result)
             end
             common_slope_y_calculation()
             player.y = tile_max_y - block_x - 8
+        end
+        if (btn(3)) then
+            player.speed_x = player.speed_x - 0.7
         end
     else
         player.y = player.dy

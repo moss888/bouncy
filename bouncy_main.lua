@@ -11,7 +11,7 @@ function _init()
     last_slope_flag_used = sloped_terrain_l_flag
     current_checkpoint = 2
     rolling_ball_index_count = 1
-    checkpoint_locations = {{136, 24}, {345, 16}}
+    checkpoint_locations = {{136, 24}, {345, 16},{704, 16}}
     checkpoint_sprites = {73, 74}
     rolling_ball_indexes = {7, 8, 9, 10}
     x_squish_ball_indexes = {27, 28, 29}
