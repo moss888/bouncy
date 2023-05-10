@@ -4,14 +4,19 @@ function _init()
     terrain_flag = 0x2
     bubble_power_enabled = false
     hazard_flag = 0x4
+    camera_offset_x = 0
+    camera_offset_y = 0
     top_only_hazard_flag = 0x8
     sloped_terrain_l_flag = 0x10
     sloped_terrain_r_flag = 0x20
     top_only_collision_flag = 0x40
     last_slope_flag_used = sloped_terrain_l_flag
-    current_checkpoint = 2
+    current_checkpoint = 4
     rolling_ball_index_count = 1
-    checkpoint_locations = {{136, 24}, {345, 16},{704, 16}}
+    -- x_start,y_start,x_end,y_end,speed,animation_count 
+    slime_emitter_locations = {}
+    slime_sprite_indexes = {84,85,86}
+    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {1000, 192}}
     checkpoint_sprites = {73, 74}
     rolling_ball_indexes = {7, 8, 9, 10}
     x_squish_ball_indexes = {27, 28, 29}
@@ -31,6 +36,7 @@ function _init()
     camera_x_front_boundry = 212
     camera_x_back_boundry = 0
     hazard_hit_animation = 0
+    music_pattern_playing = -1
     player_defaults = {
         hazard_hit = false,
         x = 64,
@@ -58,21 +64,32 @@ end
 
 function get_user_input(player)
     if btn(0) then
-        player.speed_x = player.speed_x - horizontal_add_energy
-        if (player.speed_x <= (horizontal_add_energy_limit * -1)) then
-            player.speed_x = (horizontal_add_energy_limit * -1)
+        if (player.colliding_y and btn(3)) then
+            player.speed_x = player.speed_x * 0.95
+        else
+            player.speed_x = player.speed_x - horizontal_add_energy
+            if (player.speed_x <= (horizontal_add_energy_limit * -1)) then
+                player.speed_x = (horizontal_add_energy_limit * -1)
+            end
         end
     end
     if btn(1) then
-        player.speed_x = player.speed_x + horizontal_add_energy
-        if (player.speed_x >= horizontal_add_energy_limit) then
-            player.speed_x = horizontal_add_energy_limit
+        if (player.colliding_y and btn(3)) then
+            player.speed_x = player.speed_x * 0.95
+        else
+            player.speed_x = player.speed_x + horizontal_add_energy
+            if (player.speed_x >= horizontal_add_energy_limit) then
+                player.speed_x = horizontal_add_energy_limit
+            end
         end
     end
     if btn(3) then
         player.speed_y = player.speed_y + vertical_add_energy
         if (player.speed_y >= vertical_add_energy_limit) then
             player.speed_y = vertical_add_energy_limit
+        end
+        if (player.colliding_y) then
+            player.speed_x = player.speed_x * 0.95
         end
     end
     if btn(2) and bubble_power_enabled then
@@ -81,7 +98,7 @@ function get_user_input(player)
             player.speed_y = vertical_add_energy_limit * -1
         end
     end
-    if btn(4) then
+    if btn(4) or btn(5) then
         player.debounce = true
     else
         player.debounce = false
@@ -223,8 +240,7 @@ function process_hazard_hit_animation()
 end
 
 function _draw()
-    
-    
+
     if (player.hazard_hit == false) then
         if (player.debounce) then
             pal(8, 9)
@@ -241,6 +257,11 @@ function _draw()
         process_hazard_hit_animation()
     end
 
+end
+
+-- x_start,y_start,x_end,y_end,speed,animation_count 
+function slime_emitters()
+    
 end
 
 function draw_checkpoints()
@@ -268,6 +289,29 @@ function draw_map()
         camera_x_front_boundry = camera_x_back_boundry + 40
     elseif (player.x > 980) then
         camera_offset_x = 896
+        camera_x_back_boundry = 940
+    end
+
+    if (player.y >= 0 and player.y < 128) then
+        camera_offset_y = 0
+        if (music_pattern_playing ~= 1) then
+            music(1, -1, 3)
+            music_pattern_playing = 1
+        end
+    elseif (player.y >= 128 and player.y < 256) then
+        camera_offset_y = 128
+        music_pattern_playing = -1
+        music(-1, -1)
+        pal(12, 5)
+    elseif (player.y >= 256 and player.y < 384) then
+        music_pattern_playing = -1
+        music(-1, -1)
+        camera_offset_y = 256
+    elseif (player.y >= 384 and player.y < 512) then
+        music_pattern_playing = -1
+        music(-1, -1)
+        camera_offset_y = 384
+
     end
 
     -- log('back:' .. camera_x_back_boundry .. ' front:' .. camera_x_front_boundry)
@@ -278,7 +322,7 @@ function draw_map()
         camera_x_front_boundry = 0
     end
 
-    camera(camera_offset_x, 0)
+    camera(camera_offset_x, camera_offset_y)
     map()
 end
 
