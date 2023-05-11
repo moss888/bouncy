@@ -11,11 +11,13 @@ function _init()
     sloped_terrain_r_flag = 0x20
     top_only_collision_flag = 0x40
     last_slope_flag_used = sloped_terrain_l_flag
-    current_checkpoint = 4
+    current_checkpoint = -4
     rolling_ball_index_count = 1
-    -- x_start,y_start,x_end,y_end,speed,animation_count 
-    slime_emitter_locations = {}
-    slime_sprite_indexes = {84,85,86}
+    -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count 
+    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}}
+    slime_sprite_indexes = {32, 33, 34}
+    -- x,y,sprite#
+    slime_sprites_to_draw = {}
     checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {1000, 192}}
     checkpoint_sprites = {73, 74}
     rolling_ball_indexes = {7, 8, 9, 10}
@@ -103,9 +105,9 @@ function get_user_input(player)
     else
         player.debounce = false
     end
-    if btn(5) then
-        player.hazard_hit = true
-    end
+    -- if btn(5) then
+    --     player.hazard_hit = true
+    -- end
 
 end
 
@@ -219,6 +221,7 @@ function _update()
         move_x(player)
         move_y(player)
         non_physical_collisions()
+        slime_emitters()
         apply_friction(player)
     end
 
@@ -250,6 +253,7 @@ function _draw()
             pal()
         end
     end
+    draw_slime()
     draw_checkpoints()
     spr(player.ball_sprite_index, player.x, player.y, 1, 1, player.ball_sprite_flip_x, player.ball_sprite_flip_y)
 
@@ -259,9 +263,68 @@ function _draw()
 
 end
 
--- x_start,y_start,x_end,y_end,speed,animation_count 
+-- x_start,y_start,x_end,y_end,max_count,animation_count,sprite_x,sprite_y
+slime_drop_in_frames = 6
+slime_drop_in_frames_one_third = flr(slime_drop_in_frames / 3)
+slime_drop_in_frames_two_third = (flr(slime_drop_in_frames / 3) * 2)
+
 function slime_emitters()
-    
+    slime_sprites_to_draw = {}
+    for i, slime in ipairs(slime_emitter_locations) do
+        local x_tile_start, y_tile_start, x_tile_end, y_tile_end, max_count, animation_count = unpack(slime)
+        animation_count = animation_count + 1
+        if (animation_count > max_count) then
+            animation_count = 0
+        end
+        local slime_sprite = slime_sprite_indexes[1]
+        local real_space_tiles = ((y_tile_end - y_tile_start) + 1)
+        local current_y_tile = flr(animation_count / slime_drop_in_frames)
+        local sprite_x = -1
+        local sprite_y = -1
+        -- only worry about slime drops which are visible
+        if (current_y_tile <= (real_space_tiles + 1)) then
+            local frame_remainder = animation_count % slime_drop_in_frames
+            if (current_y_tile == (real_space_tiles + 1)) then
+                sprite_x = x_tile_end * 8
+                sprite_y = y_tile_end * 8
+                if (frame_remainder < slime_drop_in_frames_one_third) then
+                    slime_sprite = slime_sprite_indexes[2]
+                elseif ((frame_remainder >= slime_drop_in_frames_one_third) and
+                    (frame_remainder < slime_drop_in_frames_two_third)) then
+                    slime_sprite = slime_sprite_indexes[3]
+                else
+                    slime_sprite = 0
+                end
+            else
+                sprite_x = x_tile_start * 8
+                if (frame_remainder < slime_drop_in_frames_one_third) then
+                    sprite_y = (y_tile_start * 8) + (8 * (current_y_tile - 1))
+                elseif ((frame_remainder >= slime_drop_in_frames_one_third) and
+                    (frame_remainder < slime_drop_in_frames_two_third)) then
+                    sprite_y = (y_tile_start * 8) + (8 * (current_y_tile - 1)) + 2
+                else
+                    sprite_y = (y_tile_start * 8) + (8 * (current_y_tile - 1)) + 4
+                end
+            end
+            add(slime_sprites_to_draw, {
+                x = sprite_x,
+                y = sprite_y,
+                sprite = slime_sprite
+            })
+            if (box_collision(player.x, player.y, player.width, player.height, sprite_x + 2, sprite_y, 4, 6)) then
+                player.hazard_hit = true
+                hazard_hit_animation = 0
+            end
+        end
+        slime[6] = animation_count
+        slime_emitter_locations[i] = slime
+    end
+end
+
+function draw_slime()
+    for _, obj in pairs(slime_sprites_to_draw) do
+        spr(obj.sprite, obj.x, obj.y, 1, 1)
+    end
 end
 
 function draw_checkpoints()
