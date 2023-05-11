@@ -31,8 +31,8 @@ function move_x(player)
     set_ball_sprite_index()
 
     local collision_result = check_map_collision_x(player,
-        (sloped_terrain_l_flag | sloped_terrain_r_flag | terrain_flag | hazard_flag | top_only_collision_flag),
-        resolution)
+        (bouncy_terrain_flag | sloped_terrain_l_flag | sloped_terrain_r_flag | terrain_flag | hazard_flag |
+            top_only_collision_flag), resolution)
 
     if (collision_result.collision == true) then
 
@@ -48,6 +48,8 @@ function move_x(player)
             calculate_top_only_collision_terrain(collision_result)
             player.colliding_x = false
             player.x = player.dx
+        elseif ((collision_result.flag & bouncy_terrain_flag) > 0) then
+            handle_bouncy_collision_x(collision_result)
         elseif ((collision_result.flag & terrain_flag > 0)) then
             -- normal terrain
             player.colliding_x = true
@@ -97,8 +99,8 @@ function move_y(player)
     end
 
     local collision_result = check_map_collision_y(player,
-        (sloped_terrain_l_flag | sloped_terrain_r_flag | terrain_flag | hazard_flag | top_only_hazard_flag |
-            top_only_collision_flag), resolution)
+        (bouncy_terrain_flag | sloped_terrain_l_flag | sloped_terrain_r_flag | terrain_flag | hazard_flag |
+            top_only_hazard_flag | top_only_collision_flag), resolution)
 
     if (collision_result.collision == true) then
         -- check hazard collisions
@@ -111,6 +113,8 @@ function move_y(player)
             handle_slope_collision_left_y(collision_result)
         elseif (collision_result.flag2 & sloped_terrain_r_flag > 0) then
             handle_slope_collision_right_y(collision_result)
+        elseif ((collision_result.flag & bouncy_terrain_flag) > 0) then
+            handle_bouncy_collision_y(collision_result)
         elseif ((collision_result.flag & terrain_flag > 0) or (collision_result.flag & top_only_collision_flag > 0)) then
             -- normal terrain
             player.colliding_y = true
@@ -174,6 +178,69 @@ function calculate_stored_energy_y()
     end
 end
 
+function handle_bouncy_collision_x(collision_result)
+    local tile = nil
+    for _, test_tile in pairs(collision_result.tiles) do
+        if (tile == nil) then
+            tile = test_tile
+        else
+            if (player.speed_x <= 0) then
+                if (test_tile.x < tile.x) then
+                    tile = test_tile
+                end
+            else
+                if (test_tile.x > tile.x) then
+                    tile = test_tile
+                end
+            end
+        end
+    end
+    if (player.speed_x <= 0) then
+        player.x = (tile.x * 8) + 9
+    else
+        player.x = (tile.x * 8) - 9
+    end
+    if (player.debounce == true) then
+        player.speed_x = player.speed_x * -1.1
+    else
+        player.speed_x = player.speed_x * -1.8
+    end
+    
+    player.dx = player.x
+    player.dump_stored_speed_x = true
+end
+
+function handle_bouncy_collision_y(collision_result)
+    local tile = nil
+    for _, test_tile in pairs(collision_result.tiles) do
+        if (tile == nil) then
+            tile = test_tile
+        else
+            if (player.speed_y <= 0) then
+                if (test_tile.y < tile.y) then
+                    tile = test_tile
+                end
+            else
+                if (test_tile.y > tile.y) then
+                    tile = test_tile
+                end
+            end
+        end
+    end
+    if (player.speed_y <= 0) then
+        player.y = (tile.y * 8) + 9
+    else
+        player.y = (tile.y * 8) - 9
+    end
+    if (player.debounce == true) then
+        player.speed_y = player.speed_y * -1.1
+    else
+        player.speed_y = player.speed_y * -1.8
+    end
+    player.dy = player.y
+    player.dump_stored_speed_y = true
+end
+
 function handle_slope_collision_left_y(collision_result)
     player.colliding_y = true
     local tile = nil
@@ -191,7 +258,6 @@ function handle_slope_collision_left_y(collision_result)
     local x_speed = player.speed_x
     if (x_speed < 4 or player.debounce) then
         if ((player.x + 0) >= (tile_min_x) and (player.x + 0) <= tile_max_x) then
-
             local block_x = ((player.x + 0) - tile_min_x)
             if (block_x < 0) then
                 block_x = 0

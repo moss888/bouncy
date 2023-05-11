@@ -6,12 +6,13 @@ function _init()
     hazard_flag = 0x4
     camera_offset_x = 0
     camera_offset_y = 0
+    bouncy_terrain_flag = 0x80
     top_only_hazard_flag = 0x8
     sloped_terrain_l_flag = 0x10
     sloped_terrain_r_flag = 0x20
     top_only_collision_flag = 0x40
     last_slope_flag_used = sloped_terrain_l_flag
-    current_checkpoint = -4
+    current_checkpoint = 4
     rolling_ball_index_count = 1
     -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count 
     slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}}
@@ -105,9 +106,9 @@ function get_user_input(player)
     else
         player.debounce = false
     end
-    -- if btn(5) then
-    --     player.hazard_hit = true
-    -- end
+    if btn(5) then
+        player.hazard_hit = true
+    end
 
 end
 
@@ -311,7 +312,7 @@ function slime_emitters()
                 y = sprite_y,
                 sprite = slime_sprite
             })
-            if (box_collision(player.x, player.y, player.width, player.height, sprite_x + 2, sprite_y, 4, 6)) then
+            if (box_collision(player.x, player.y, player.width, player.height, sprite_x+1, sprite_y,2, 4)) then
                 player.hazard_hit = true
                 hazard_hit_animation = 0
             end
