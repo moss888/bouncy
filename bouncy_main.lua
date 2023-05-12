@@ -12,22 +12,24 @@ function _init()
     sloped_terrain_r_flag = 0x20
     top_only_collision_flag = 0x40
     last_slope_flag_used = sloped_terrain_l_flag
-    current_checkpoint = 4
+    slope_speed_threshold = 4
+    current_checkpoint = 7
     rolling_ball_index_count = 1
-    -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count 
-    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}}
+    -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
+    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0},{86, 23, 86, 30, 90,0, 0}}
     slime_sprite_indexes = {32, 33, 34}
     -- x,y,sprite#
     slime_sprites_to_draw = {}
-    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {1000, 192}}
+    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {992, 192}, {752, 224},{448, 168},{88,216}}
     checkpoint_sprites = {73, 74}
     rolling_ball_indexes = {7, 8, 9, 10}
     x_squish_ball_indexes = {27, 28, 29}
     y_squish_ball_indexes = {11, 12, 13}
-    horizontal_add_energy = 0.9
-    vertical_add_energy = 1.8
+    horizontal_add_energy = 0.7
+    vertical_add_energy = 1.7
     bounce_loss_ratio = 0.8
-    debounce_ratio = 0.5
+    debounce_ratio = 0.6
+    max_x_speed = 30
     vertical_add_energy_limit = 8
     horizontal_add_energy_limit = 5
     stored_energy_limit = 8
@@ -59,7 +61,8 @@ function _init()
         ball_sprite_flip_y = false,
         colliding_x = false,
         colliding_y = false,
-        debounce = false
+        debounce = false,
+        slope_jump_mode = 0
     }
     player = shallow_copy(player_defaults)
 
@@ -84,6 +87,7 @@ function get_user_input(player)
             if (player.speed_x >= horizontal_add_energy_limit) then
                 player.speed_x = horizontal_add_energy_limit
             end
+
         end
     end
     if btn(3) then
@@ -312,7 +316,7 @@ function slime_emitters()
                 y = sprite_y,
                 sprite = slime_sprite
             })
-            if (box_collision(player.x, player.y, player.width, player.height, sprite_x+1, sprite_y,2, 4)) then
+            if (box_collision(player.x, player.y, player.width, player.height, sprite_x + 1, sprite_y, 2, 4)) then
                 player.hazard_hit = true
                 hazard_hit_animation = 0
             end
@@ -359,13 +363,15 @@ function draw_map()
     if (player.y >= 0 and player.y < 128) then
         camera_offset_y = 0
         if (music_pattern_playing ~= 1) then
-            music(1, -1, 3)
+            music(1, -1)
             music_pattern_playing = 1
         end
     elseif (player.y >= 128 and player.y < 256) then
         camera_offset_y = 128
-        music_pattern_playing = -1
-        music(-1, -1)
+        if (music_pattern_playing ~= 2) then
+            music(16, -1)
+            music_pattern_playing = 2
+        end
         pal(12, 5)
     elseif (player.y >= 256 and player.y < 384) then
         music_pattern_playing = -1
