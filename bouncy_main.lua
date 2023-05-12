@@ -11,16 +11,33 @@ function _init()
     sloped_terrain_l_flag = 0x10
     sloped_terrain_r_flag = 0x20
     top_only_collision_flag = 0x40
+    button_sets = {{
+        buttons = {{
+            x = 1,
+            y = 20,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 14,
+            y = 20,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }},
+        label = 'seed_door',
+        seed_door_open = false
+    }}
     last_slope_flag_used = sloped_terrain_l_flag
     slope_speed_threshold = 4
-    current_checkpoint = 7
+    current_checkpoint = -1
     rolling_ball_index_count = 1
     -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
-    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0},{86, 23, 86, 30, 90,0, 0}}
+    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0, 0}}
     slime_sprite_indexes = {32, 33, 34}
     -- x,y,sprite#
     slime_sprites_to_draw = {}
-    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {992, 192}, {752, 224},{448, 168},{88,216}}
+    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {992, 192}, {752, 224}, {448, 168}, {88, 216}}
     checkpoint_sprites = {73, 74}
     rolling_ball_indexes = {7, 8, 9, 10}
     x_squish_ball_indexes = {27, 28, 29}
@@ -41,6 +58,7 @@ function _init()
     camera_x_front_boundry = 212
     camera_x_back_boundry = 0
     hazard_hit_animation = 0
+    seed_door_animation = 0
     music_pattern_playing = -1
     player_defaults = {
         hazard_hit = false,
@@ -110,9 +128,9 @@ function get_user_input(player)
     else
         player.debounce = false
     end
-    if btn(5) then
-        player.hazard_hit = true
-    end
+    -- if btn(5) then
+    --     player.hazard_hit = true
+    -- end
 
 end
 
@@ -212,8 +230,6 @@ function reset_player()
 end
 
 function _update()
-    cls()
-    draw_map()
 
     update_framecount()
     if (player.hazard_hit) then
@@ -222,6 +238,8 @@ function _update()
             reset_player()
         end
     else
+        update_buttons()
+        update_seed_door()
         get_user_input(player)
         move_x(player)
         move_y(player)
@@ -230,6 +248,71 @@ function _update()
         apply_friction(player)
     end
 
+end
+
+function update_buttons()
+    for _, bset in pairs(button_sets) do
+        local all_on = true
+        for _, button in pairs(bset.buttons) do
+            if (box_collision(player.x, player.y, 8, 8, ((button.x * 8)), ((button.y * 8)), 10, 10) and button.timeout <
+                1) then
+                if (button.state == false) then
+                    button.state = true
+                    set_button_sprite(button)
+                    sfx(0, -1, 16, 6)
+                else
+                    if (button.always_on == false) then
+                        button.state = false
+                        set_button_sprite(button)
+                        sfx(0, -1, 24, 6)
+                    end
+                end
+                button.timeout = 20
+
+            end
+            if (button.timeout > 0) then
+                button.timeout = button.timeout - 1
+            end
+            if (button.state == false) then
+                all_on = false
+            end
+        end
+        if (all_on) then
+            if (bset.label == 'seed_door') then
+                if (bset.seed_door_open == false) then
+                    seed_door_animation = 1
+                    bset.seed_door_open = true
+                end
+            end
+        end
+    end
+end
+
+function update_seed_door()
+    if (seed_door_animation <= 90 and seed_door_animation > 0) then
+        if (seed_door_animation == 1) then
+            music(-1)
+            sfx(26, -1)
+        end
+        if (seed_door_animation == 30) then
+            mset(3, 30, 0)
+            mset(4, 30, 0)
+            mset(3, 29, 44)
+            mset(4, 29, 44)
+            mset(3, 28, 45)
+            mset(4, 28, 45)
+        end
+        if (seed_door_animation == 60) then
+            mset(3, 29, 0)
+            mset(4, 29, 0)
+            mset(3, 28, 44)
+            mset(4, 28, 44)
+        end
+        if (seed_door_animation == 90) then
+
+        end
+        seed_door_animation = seed_door_animation + 1
+    end
 end
 
 function process_hazard_hit_animation()
@@ -248,7 +331,8 @@ function process_hazard_hit_animation()
 end
 
 function _draw()
-
+    cls()
+    draw_map()
     if (player.hazard_hit == false) then
         if (player.debounce) then
             pal(8, 9)
@@ -323,6 +407,14 @@ function slime_emitters()
         end
         slime[6] = animation_count
         slime_emitter_locations[i] = slime
+    end
+end
+
+function set_button_sprite(button)
+    if (button.state == true) then
+        mset(button.x, button.y, 47)
+    else
+        mset(button.x, button.y, 46)
     end
 end
 

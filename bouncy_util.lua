@@ -144,7 +144,7 @@ function box_collision(obj1_x, obj1_y, obj1_w, obj1_h, obj2_x, obj2_y, obj2_w, o
     local collision_y_length = (obj1_h / 2) + (obj2_h / 2)
     local x_diff = abs(obj2_x - obj1_x)
     local y_diff = abs(obj2_y - obj1_y)
-    if (x_diff < collision_x_length and y_diff < collision_y_length) then
+    if (x_diff <= collision_x_length and y_diff <= collision_y_length) then
         return true
     else
         return false
