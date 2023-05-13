@@ -27,17 +27,33 @@ function _init()
         }},
         label = 'seed_door',
         seed_door_open = false
+    }, {
+        buttons = {{
+            x = 1,
+            y = 20,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 14,
+            y = 20,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }},
+        label = 'seed_door',
+        seed_door_open = false
     }}
     last_slope_flag_used = sloped_terrain_l_flag
     slope_speed_threshold = 4
-    current_checkpoint = -1
+    current_checkpoint = 7
     rolling_ball_index_count = 1
     -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
-    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0, 0}}
+    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},{11, 41, 11, 49, 140, 0}}
     slime_sprite_indexes = {32, 33, 34}
     -- x,y,sprite#
     slime_sprites_to_draw = {}
-    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {992, 192}, {752, 224}, {448, 168}, {88, 216}}
+    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {992, 192}, {752, 224}, {448, 168}, {88, 216}, {136, 488}}
     checkpoint_sprites = {73, 74}
     rolling_ball_indexes = {7, 8, 9, 10}
     x_squish_ball_indexes = {27, 28, 29}
@@ -55,7 +71,10 @@ function _init()
     gravity = 0.3
     relativity_gravity = 0.1
     resolution = 0.1
-    camera_x_front_boundry = 212
+    camera_x_front_boundry = 300
+    camera_y_top_boundry = 212
+    camera_y_bottom_boundry = 340
+
     camera_x_back_boundry = 0
     hazard_hit_animation = 0
     seed_door_animation = 0
@@ -128,9 +147,9 @@ function get_user_input(player)
     else
         player.debounce = false
     end
-    -- if btn(5) then
-    --     player.hazard_hit = true
-    -- end
+    if btn(5) then
+        player.hazard_hit = true
+    end
 
 end
 
@@ -465,15 +484,23 @@ function draw_map()
             music_pattern_playing = 2
         end
         pal(12, 5)
-    elseif (player.y >= 256 and player.y < 384) then
+    elseif (player.y >= 256 and player.y < 512) then
+        pal(12, 1)
         music_pattern_playing = -1
         music(-1, -1)
-        camera_offset_y = 256
-    elseif (player.y >= 384 and player.y < 512) then
-        music_pattern_playing = -1
-        music(-1, -1)
-        camera_offset_y = 384
-
+        if (player.y <= 296) then
+            camera_offset_y = 256
+        elseif (player.y >= 468) then
+            camera_offset_y = 384
+        elseif (player.y > camera_y_bottom_boundry) then
+            camera_offset_y = (player.y - 84)
+            camera_y_bottom_boundry = player.y
+            camera_y_top_boundry = camera_y_bottom_boundry - 40
+        elseif (player.y < camera_y_top_boundry) then
+            camera_offset_y = (player.y - 44)
+            camera_y_top_boundry = player.y
+            camera_y_bottom_boundry = camera_y_top_boundry + 40
+        end
     end
 
     -- log('back:' .. camera_x_back_boundry .. ' front:' .. camera_x_front_boundry)
