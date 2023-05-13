@@ -2,7 +2,7 @@
 function _init()
     log('bouncy init called')
     terrain_flag = 0x2
-    bubble_power_enabled = false
+    bubble_power_enabled = true
     hazard_flag = 0x4
     camera_offset_x = 0
     camera_offset_y = 0
@@ -71,7 +71,7 @@ function _init()
     gravity = 0.3
     relativity_gravity = 0.1
     resolution = 0.1
-    camera_x_front_boundry = 300
+    camera_x_front_boundry = 212
     camera_y_top_boundry = 212
     camera_y_bottom_boundry = 340
 
@@ -454,8 +454,46 @@ function draw_checkpoints()
 end
 
 function draw_map()
+
+
+    if (player.y >= 0 and player.y < 128) then
+        camera_offset_y = 0
+        if (music_pattern_playing ~= 1) then
+            music(1, -1)
+            music_pattern_playing = 1
+        end
+    elseif (player.y >= 128 and player.y < 254) then
+        camera_offset_y = 128
+        if (music_pattern_playing ~= 2) then
+            music(16, -1)
+            music_pattern_playing = 2
+        end
+        pal(12, 5)
+    elseif (player.y >= 254 and player.y < 512) then
+        pal(12, 1)
+        if (music_pattern_playing ~= 3) then
+            music(32, -1)
+            music_pattern_playing = 3
+        end
+        if (player.y <= 297) then
+            camera_offset_y = 254
+        elseif (player.y >= 468) then
+            camera_offset_y = 384
+        elseif (player.y > camera_y_bottom_boundry) then
+            camera_offset_y = (player.y - 84)
+            camera_y_bottom_boundry = player.y
+            camera_y_top_boundry = camera_y_bottom_boundry - 40
+        elseif (player.y < camera_y_top_boundry) then
+            camera_offset_y = (player.y - 44)
+            camera_y_top_boundry = player.y
+            camera_y_bottom_boundry = camera_y_top_boundry + 40
+        end
+    end
+
     if (player.x < 127) then
         camera_offset_x = 0
+        music(-1, -1)
+        music_pattern_playing = -1
     elseif (player.x >= 127 and player.x < 164) then
         camera_offset_x = 120
     elseif (player.x > camera_x_front_boundry and player.x <= 980) then
@@ -471,37 +509,7 @@ function draw_map()
         camera_x_back_boundry = 940
     end
 
-    if (player.y >= 0 and player.y < 128) then
-        camera_offset_y = 0
-        if (music_pattern_playing ~= 1) then
-            music(1, -1)
-            music_pattern_playing = 1
-        end
-    elseif (player.y >= 128 and player.y < 256) then
-        camera_offset_y = 128
-        if (music_pattern_playing ~= 2) then
-            music(16, -1)
-            music_pattern_playing = 2
-        end
-        pal(12, 5)
-    elseif (player.y >= 256 and player.y < 512) then
-        pal(12, 1)
-        music_pattern_playing = -1
-        music(-1, -1)
-        if (player.y <= 296) then
-            camera_offset_y = 256
-        elseif (player.y >= 468) then
-            camera_offset_y = 384
-        elseif (player.y > camera_y_bottom_boundry) then
-            camera_offset_y = (player.y - 84)
-            camera_y_bottom_boundry = player.y
-            camera_y_top_boundry = camera_y_bottom_boundry - 40
-        elseif (player.y < camera_y_top_boundry) then
-            camera_offset_y = (player.y - 44)
-            camera_y_top_boundry = player.y
-            camera_y_bottom_boundry = camera_y_top_boundry + 40
-        end
-    end
+  
 
     -- log('back:' .. camera_x_back_boundry .. ' front:' .. camera_x_front_boundry)
     if (camera_x_front_boundry < 212) then
