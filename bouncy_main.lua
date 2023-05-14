@@ -2,7 +2,7 @@
 function _init()
     log('bouncy init called')
     terrain_flag = 0x2
-    bubble_power_enabled = true
+    bubble_power_enabled = false
     hazard_flag = 0x4
     camera_offset_x = 0
     camera_offset_y = 0
@@ -11,6 +11,8 @@ function _init()
     sloped_terrain_l_flag = 0x10
     sloped_terrain_r_flag = 0x20
     top_only_collision_flag = 0x40
+    -- {{letter='?',x=0,y=0,color=7}}
+    letters_to_draw = {}
     button_sets = {{
         buttons = {{
             x = 1,
@@ -29,27 +31,77 @@ function _init()
         seed_door_open = false
     }, {
         buttons = {{
-            x = 1,
-            y = 20,
+            x = 32,
+            y = 55,
             state = false,
             timeout = 30,
-            always_on = true
+            always_on = true,
+            text = {
+                letter = 'P',
+                x = 141,
+                y = 441,
+                color = 7
+            }
+
         }, {
-            x = 14,
-            y = 20,
+            x = 36,
+            y = 55,
             state = false,
             timeout = 30,
-            always_on = true
+            always_on = true,
+            text = {
+                letter = 'U',
+                x = 157,
+                y = 441,
+                color = 7
+            }
+        }, {
+            x = 33,
+            y = 55,
+            state = false,
+            timeout = 30,
+            always_on = true,
+            text = {
+                letter = 'S',
+                x = 173,
+                y = 441,
+                color = 7
+            }
+        }, {
+            x = 34,
+            y = 55,
+            state = false,
+            timeout = 30,
+            always_on = true,
+            text = {
+                letter = 'H',
+                x = 189,
+                y = 441,
+                color = 7
+            }
+        }, {
+            x = 35,
+            y = 55,
+            state = false,
+            timeout = 30,
+            always_on = true,
+            text = {
+                letter = chr(94),
+                x = 205,
+                y = 443,
+                color = 7
+            }
         }},
-        label = 'seed_door',
-        seed_door_open = false
+        label = 'blue_goo',
+        blue_goo_open = false
     }}
     last_slope_flag_used = sloped_terrain_l_flag
     slope_speed_threshold = 4
-    current_checkpoint = 7
+    current_checkpoint = 8
     rolling_ball_index_count = 1
     -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
-    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},{11, 41, 11, 49, 140, 0}}
+    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},
+                               {11, 41, 11, 49, 140, 0}, {126, 41, 126, 61, 200, 0}}
     slime_sprite_indexes = {32, 33, 34}
     -- x,y,sprite#
     slime_sprites_to_draw = {}
@@ -78,6 +130,7 @@ function _init()
     camera_x_back_boundry = 0
     hazard_hit_animation = 0
     seed_door_animation = 0
+    blue_goo_animation = 0
     music_pattern_playing = -1
     player_defaults = {
         hazard_hit = false,
@@ -259,6 +312,7 @@ function _update()
     else
         update_buttons()
         update_seed_door()
+        update_blue_goo()
         get_user_input(player)
         move_x(player)
         move_y(player)
@@ -279,6 +333,9 @@ function update_buttons()
                     button.state = true
                     set_button_sprite(button)
                     sfx(0, -1, 16, 6)
+                    if (bset.label == 'blue_goo') then
+                        handle_blue_goo_button_activate(button)
+                    end
                 else
                     if (button.always_on == false) then
                         button.state = false
@@ -302,8 +359,111 @@ function update_buttons()
                     seed_door_animation = 1
                     bset.seed_door_open = true
                 end
+            elseif (bset.label == 'blue_goo') then
+                if (bset.blue_goo_open == false) then
+                    blue_goo_animation = 1
+                    bset.blue_goo_open = true
+                end
             end
         end
+    end
+end
+
+function handle_blue_goo_button_activate(button)
+    letters_to_draw[(#letters_to_draw + 1)] = button.text
+    local computer_tile_1 = position_to_maptile_coord(button.text.x, button.text.y)
+    mset(computer_tile_1.x, computer_tile_1.y, 97)
+    mset(computer_tile_1.x + 1, computer_tile_1.y, 98)
+end
+
+function update_blue_goo()
+    if (blue_goo_animation > 0) then
+        if (bubble_power_enabled == false) then
+            if (blue_goo_animation == 1) then
+                mset(28, 57, 96)
+            elseif (blue_goo_animation == 15) then
+                mset(28, 57, 113)
+                mset(28, 58, 113)
+            elseif (blue_goo_animation == 30) then
+                mset(28, 57, 96)
+                mset(28, 58, 96)
+                mset(28, 59, 96)
+            elseif (blue_goo_animation == 45) then
+                mset(28, 57, 113)
+                mset(28, 58, 113)
+                mset(28, 59, 113)
+                mset(28, 60, 113)
+            elseif (blue_goo_animation == 60) then
+                mset(28, 57, 96)
+                mset(28, 58, 96)
+                mset(28, 59, 96)
+                mset(28, 60, 96)
+                mset(28, 61, 112)
+            elseif (blue_goo_animation == 75) then
+                mset(28, 57, 113)
+                mset(28, 58, 113)
+                mset(28, 59, 113)
+                mset(28, 60, 113)
+                mset(28, 61, 114)
+                mset(28, 62, 121)
+            elseif (blue_goo_animation == 90) then
+                mset(28, 57, 96)
+                mset(28, 58, 96)
+                mset(28, 59, 96)
+                mset(28, 60, 96)
+                mset(28, 61, 112)
+                mset(28, 62, 121)
+            end
+            blue_goo_animation = blue_goo_animation + 1
+            if (blue_goo_animation == 105) then
+                blue_goo_animation = 75
+            end
+            if (blue_goo_animation >= 75 and blue_goo_animation <= 90) then
+                check_blue_goo_machine_collision()
+            end
+            if (blue_goo_animation == 110) then
+                sfx(44, -1)
+            elseif (blue_goo_animation == 230) then
+                blue_goo_animation = -1
+                bubble_power_enabled = true
+            end
+        end
+    end
+end
+
+function draw_bubble_powerup_get()
+    if (blue_goo_animation >= 110 and blue_goo_animation < 130) then
+        circ(player.x + 4, player.y + 4, 8,rnd(16))
+        circ(player.x + 4, player.y + 4, 7,rnd(16))
+    elseif (blue_goo_animation >= 130 and blue_goo_animation < 150) then
+        circ(player.x + 4, player.y + 4, 7,rnd(16))
+        circ(player.x + 4, player.y + 4, 6,rnd(16))
+    elseif (blue_goo_animation >= 150 and blue_goo_animation < 170) then
+        circ(player.x + 4, player.y + 4, 6,rnd(16))
+        circ(player.x + 4, player.y + 4, 5,rnd(16))
+        circ(player.x + 4, player.y + 4, 8,rnd(16))
+        circ(player.x + 4, player.y + 4, 7,rnd(16))
+    elseif (blue_goo_animation >= 170 and blue_goo_animation < 190) then
+        circ(player.x + 4, player.y + 4, 7,rnd(16))
+        circ(player.x + 4, player.y + 4, 6,rnd(16))
+    elseif (blue_goo_animation >= 190 and blue_goo_animation < 210) then
+        circ(player.x + 4, player.y + 4, 6,rnd(16))
+        circ(player.x + 4, player.y + 4, 5,rnd(16))
+    elseif (blue_goo_animation >= 210 and blue_goo_animation < 230) then
+        circ(player.x + 4, player.y + 4, 5,rnd(16))
+        circ(player.x + 4, player.y + 4, 4,rnd(16))
+    end
+end
+
+function check_blue_goo_machine_collision()
+    if (box_collision(player.x - 1, player.y - 1, 10, 10, 224, 496, 8, 8) and blue_goo_animation < 110 and bubble_power_enabled == false) then
+        blue_goo_animation = 110
+        mset(28, 57, 2)
+        mset(28, 58, 2)
+        mset(28, 59, 2)
+        mset(28, 60, 2)
+        mset(28, 61, 120)
+        mset(28, 62, 117)
     end
 end
 
@@ -362,6 +522,8 @@ function _draw()
         end
     end
     draw_slime()
+    draw_letters()
+    draw_bubble_powerup_get()
     draw_checkpoints()
     spr(player.ball_sprite_index, player.x, player.y, 1, 1, player.ball_sprite_flip_x, player.ball_sprite_flip_y)
 
@@ -369,6 +531,12 @@ function _draw()
         process_hazard_hit_animation()
     end
 
+end
+
+function draw_letters()
+    for _, letter in pairs(letters_to_draw) do
+        print(letter.letter, letter.x, letter.y, letter.color)
+    end
 end
 
 -- x_start,y_start,x_end,y_end,max_count,animation_count,sprite_x,sprite_y
@@ -455,7 +623,6 @@ end
 
 function draw_map()
 
-
     if (player.y >= 0 and player.y < 128) then
         camera_offset_y = 0
         if (music_pattern_playing ~= 1) then
@@ -508,8 +675,6 @@ function draw_map()
         camera_offset_x = 896
         camera_x_back_boundry = 940
     end
-
-  
 
     -- log('back:' .. camera_x_back_boundry .. ' front:' .. camera_x_front_boundry)
     if (camera_x_front_boundry < 212) then
