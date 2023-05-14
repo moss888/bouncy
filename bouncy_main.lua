@@ -2,7 +2,7 @@
 function _init()
     log('bouncy init called')
     terrain_flag = 0x2
-    bubble_power_enabled = false
+    bubble_power_enabled = true
     hazard_flag = 0x4
     camera_offset_x = 0
     camera_offset_y = 0
@@ -14,6 +14,46 @@ function _init()
     -- {{letter='?',x=0,y=0,color=7}}
     letters_to_draw = {}
     button_sets = {{
+        buttons = {{
+            x = 66,
+            y = 34,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 66,
+            y = 37,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 68,
+            y = 34,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 68,
+            y = 37,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 70,
+            y = 34,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 70,
+            y = 37,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }},
+        label = 'final_door',
+        final_door_open = false
+    }, {
         buttons = {{
             x = 1,
             y = 20,
@@ -80,8 +120,8 @@ function _init()
                 color = 7
             }
         }, {
-            x = 35,
-            y = 55,
+            x = 113,
+            y = 44,
             state = false,
             timeout = 30,
             always_on = true,
@@ -95,6 +135,10 @@ function _init()
         label = 'blue_goo',
         blue_goo_open = false
     }}
+    final_door_animation = 0
+    seed_captured = true
+    game_over_animation = 0
+    game_over = false
     last_slope_flag_used = sloped_terrain_l_flag
     slope_speed_threshold = 4
     current_checkpoint = 8
@@ -124,12 +168,45 @@ function _init()
         direction = 'x',
         max_count = 45,
         count = 0
+    }, {
+        sx = 27,
+        sy = 35,
+        ex = 30,
+        ey = 35,
+        direction = 'x',
+        max_count = 60,
+        count = 0
+    }, {
+        sx = 48,
+        sy = 33,
+        ex = 48,
+        ey = 36,
+        direction = 'y',
+        max_count = 145,
+        count = 0
+    }, {
+        sx = 51,
+        sy = 33,
+        ex = 51,
+        ey = 36,
+        direction = 'y',
+        max_count = 90,
+        count = 0
+    }, {
+        sx = 54,
+        sy = 33,
+        ex = 54,
+        ey = 36,
+        direction = 'y',
+        max_count = 120,
+        count = 0
     }}
-    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},
-                               {11, 41, 11, 49, 140, 0}, {126, 41, 126, 61, 200, 0}}
+
     -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
     slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},
-                               {11, 41, 11, 49, 140, 0}, {126, 41, 126, 61, 200, 0}}
+                               {11, 41, 11, 49, 140, 0}, {11, 41, 11, 49, 140, 0}, {126, 41, 126, 61, 200, 0},
+                               {99, 44, 99, 44, 70, 0}, {104, 44, 104, 45, 70, 0}, {107, 44, 107, 45, 60, 0},
+                               {109, 44, 109, 45, 120, 0}}
     slime_sprite_indexes = {32, 33, 34}
     -- x,y,sprite#
     slime_sprites_to_draw = {}
@@ -183,6 +260,9 @@ function _init()
         slope_jump_mode = 0
     }
     player = shallow_copy(player_defaults)
+
+    player.x = 16
+    player.dx = 16
 
 end
 
@@ -342,6 +422,8 @@ function _update()
         update_seed_door()
         update_blue_goo()
         update_electric_boxes()
+        update_seed_status()
+        update_final_door()
         get_user_input(player)
         move_x(player)
         move_y(player)
@@ -350,6 +432,36 @@ function _update()
         apply_friction(player)
     end
 
+end
+
+function update_seed_status()
+    if (seed_captured == false) then
+        if (box_collision(player.x + 4, player.y + 4, 8, 8, 988, 268, 8, 8) == true) then
+            seed_captured = true
+            mset(124, 33, 0)
+            mset(124, 34, 0)
+            bubble_power_enabled = false
+            blue_goo_animation = 109
+        end
+    else
+        if (box_collision(player.x + 4, player.y + 4, 8, 8, 64, 120, 16, 8) == true) then
+            game_over = true
+            seed_captured = false
+            game_over_animation = 1
+            mset(15,14,20)
+            mset(14,14,6)
+
+        end
+    end
+end
+
+function draw_seed()
+    if (seed_captured == true) then
+        spr(61, player.x, player.y)
+        print('RETURN', 985, 256, 11)
+        print('TO', 993, 262, 11)
+        print('START', 987, 268, 11)
+    end
 end
 
 function update_buttons()
@@ -392,6 +504,11 @@ function update_buttons()
                 if (bset.blue_goo_open == false) then
                     blue_goo_animation = 1
                     bset.blue_goo_open = true
+                end
+            elseif (bset.label == 'final_door') then
+                if (bset.final_door_open == false) then
+                    final_door_animation = 1
+                    bset.final_door_open = true
                 end
             end
         end
@@ -561,6 +678,49 @@ function update_electric_boxes()
     end
 end
 
+function update_final_door()
+    if (final_door_animation <= 90 and final_door_animation > 0) then
+        if (final_door_animation == 1) then
+            music(-1)
+            sfx(26, -1)
+        end
+        if (final_door_animation == 30) then
+            mset(72, 36, 0)
+            mset(73, 36, 0)
+            mset(72, 35, 44)
+            mset(73, 35, 44)
+            mset(123, 34, 0)
+            mset(124, 34, 62)
+            mset(125, 34, 0)
+            mset(123, 33, 44)
+            mset(124, 33, 44)
+            mset(125, 33, 44)
+        end
+        if (final_door_animation == 60) then
+            mset(72, 35, 0)
+            mset(73, 35, 0)
+            mset(123, 33, 0)
+            mset(124, 33, 61)
+            mset(125, 33, 0)
+            mset(123, 32, 44)
+            mset(124, 32, 44)
+            mset(125, 32, 44)
+
+        end
+        if (final_door_animation == 90) then
+            mset(72, 35, 0)
+            mset(73, 35, 0)
+            mset(123, 33, 0)
+            mset(124, 33, 61)
+            mset(125, 33, 0)
+            mset(123, 32, 0)
+            mset(124, 32, 0)
+            mset(125, 32, 0)
+        end
+        final_door_animation = final_door_animation + 1
+    end
+end
+
 function update_seed_door()
     if (seed_door_animation <= 90 and seed_door_animation > 0) then
         if (seed_door_animation == 1) then
@@ -619,8 +779,9 @@ function _draw()
     draw_letters()
     draw_bubble_powerup_get()
     draw_checkpoints()
-    spr(player.ball_sprite_index, player.x, player.y, 1, 1, player.ball_sprite_flip_x, player.ball_sprite_flip_y)
 
+    spr(player.ball_sprite_index, player.x, player.y, 1, 1, player.ball_sprite_flip_x, player.ball_sprite_flip_y)
+    draw_seed()
     if (player.hazard_hit) then
         process_hazard_hit_animation()
     end
