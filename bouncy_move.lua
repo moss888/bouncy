@@ -432,7 +432,7 @@ function check_standard_hazard_hit(collision_result, hazard_flag)
     for _, tile in pairs(tiles) do
         if ((tile.flag & hazard_flag) > 0) then
             local hazard_collides = box_collision(player.x + 4, player.y + 4, player.width, player.height,
-                tile.center_x, tile.center_y, 4, 4)
+                tile.center_x, tile.center_y, 3.5, 3.5)
             if (hazard_collides) then
                 player.hazard_hit = true
                 hazard_hit_animation = 0

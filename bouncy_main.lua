@@ -31,8 +31,8 @@ function _init()
         seed_door_open = false
     }, {
         buttons = {{
-            x = 32,
-            y = 55,
+            x = 16,
+            y = 53,
             state = false,
             timeout = 30,
             always_on = true,
@@ -44,8 +44,8 @@ function _init()
             }
 
         }, {
-            x = 36,
-            y = 55,
+            x = 126,
+            y = 62,
             state = false,
             timeout = 30,
             always_on = true,
@@ -56,8 +56,8 @@ function _init()
                 color = 7
             }
         }, {
-            x = 33,
-            y = 55,
+            x = 45,
+            y = 44,
             state = false,
             timeout = 30,
             always_on = true,
@@ -68,8 +68,8 @@ function _init()
                 color = 7
             }
         }, {
-            x = 34,
-            y = 55,
+            x = 78,
+            y = 42,
             state = false,
             timeout = 30,
             always_on = true,
@@ -99,6 +99,34 @@ function _init()
     slope_speed_threshold = 4
     current_checkpoint = 8
     rolling_ball_index_count = 1
+    -- electric boxes (tile_start_x,tile_start_y,tile_end_x,tile_end_y,alignment,max_count,animation_count)
+    electric_boxes = {{
+        sx = 57,
+        sy = 50,
+        ex = 57,
+        ey = 51,
+        direction = 'y',
+        max_count = 90,
+        count = 0
+    }, {
+        sx = 76,
+        sy = 48,
+        ex = 80,
+        ey = 48,
+        direction = 'x',
+        max_count = 90,
+        count = 0
+    }, {
+        sx = 76,
+        sy = 45,
+        ex = 80,
+        ey = 45,
+        direction = 'x',
+        max_count = 45,
+        count = 0
+    }}
+    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},
+                               {11, 41, 11, 49, 140, 0}, {126, 41, 126, 61, 200, 0}}
     -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
     slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},
                                {11, 41, 11, 49, 140, 0}, {126, 41, 126, 61, 200, 0}}
@@ -313,6 +341,7 @@ function _update()
         update_buttons()
         update_seed_door()
         update_blue_goo()
+        update_electric_boxes()
         get_user_input(player)
         move_x(player)
         move_y(player)
@@ -327,8 +356,8 @@ function update_buttons()
     for _, bset in pairs(button_sets) do
         local all_on = true
         for _, button in pairs(bset.buttons) do
-            if (box_collision(player.x, player.y, 8, 8, ((button.x * 8)), ((button.y * 8)), 10, 10) and button.timeout <
-                1) then
+            if (box_collision(player.x + 4, player.y + 4, 8, 8, ((button.x * 8) + 4), ((button.y * 8) + 4), 10, 10) and
+                button.timeout < 1) then
                 if (button.state == false) then
                     button.state = true
                     set_button_sprite(button)
@@ -433,30 +462,31 @@ end
 
 function draw_bubble_powerup_get()
     if (blue_goo_animation >= 110 and blue_goo_animation < 130) then
-        circ(player.x + 4, player.y + 4, 8,rnd(16))
-        circ(player.x + 4, player.y + 4, 7,rnd(16))
+        circ(player.x + 4, player.y + 4, 8, rnd(16))
+        circ(player.x + 4, player.y + 4, 7, rnd(16))
     elseif (blue_goo_animation >= 130 and blue_goo_animation < 150) then
-        circ(player.x + 4, player.y + 4, 7,rnd(16))
-        circ(player.x + 4, player.y + 4, 6,rnd(16))
+        circ(player.x + 4, player.y + 4, 7, rnd(16))
+        circ(player.x + 4, player.y + 4, 6, rnd(16))
     elseif (blue_goo_animation >= 150 and blue_goo_animation < 170) then
-        circ(player.x + 4, player.y + 4, 6,rnd(16))
-        circ(player.x + 4, player.y + 4, 5,rnd(16))
-        circ(player.x + 4, player.y + 4, 8,rnd(16))
-        circ(player.x + 4, player.y + 4, 7,rnd(16))
+        circ(player.x + 4, player.y + 4, 6, rnd(16))
+        circ(player.x + 4, player.y + 4, 5, rnd(16))
+        circ(player.x + 4, player.y + 4, 8, rnd(16))
+        circ(player.x + 4, player.y + 4, 7, rnd(16))
     elseif (blue_goo_animation >= 170 and blue_goo_animation < 190) then
-        circ(player.x + 4, player.y + 4, 7,rnd(16))
-        circ(player.x + 4, player.y + 4, 6,rnd(16))
+        circ(player.x + 4, player.y + 4, 7, rnd(16))
+        circ(player.x + 4, player.y + 4, 6, rnd(16))
     elseif (blue_goo_animation >= 190 and blue_goo_animation < 210) then
-        circ(player.x + 4, player.y + 4, 6,rnd(16))
-        circ(player.x + 4, player.y + 4, 5,rnd(16))
+        circ(player.x + 4, player.y + 4, 6, rnd(16))
+        circ(player.x + 4, player.y + 4, 5, rnd(16))
     elseif (blue_goo_animation >= 210 and blue_goo_animation < 230) then
-        circ(player.x + 4, player.y + 4, 5,rnd(16))
-        circ(player.x + 4, player.y + 4, 4,rnd(16))
+        circ(player.x + 4, player.y + 4, 5, rnd(16))
+        circ(player.x + 4, player.y + 4, 4, rnd(16))
     end
 end
 
 function check_blue_goo_machine_collision()
-    if (box_collision(player.x - 1, player.y - 1, 10, 10, 224, 496, 8, 8) and blue_goo_animation < 110 and bubble_power_enabled == false) then
+    if (box_collision(player.x + 4, player.y + 4, 8, 8, 228, 500, 12, 12) and blue_goo_animation < 110 and
+        bubble_power_enabled == false) then
         blue_goo_animation = 110
         mset(28, 57, 2)
         mset(28, 58, 2)
@@ -464,6 +494,70 @@ function check_blue_goo_machine_collision()
         mset(28, 60, 2)
         mset(28, 61, 120)
         mset(28, 62, 117)
+    end
+end
+
+function update_electric_boxes()
+    for _, boxes in pairs(electric_boxes) do
+        local active_count = (boxes.max_count / 2)
+        if (boxes.direction == 'y') then
+            if (boxes.count >= active_count) then
+                for i = boxes.sy, boxes.ey, 1 do
+                    if (boxes.count % 4 == 0) then
+                        if (i % 2 == 0) then
+                            mset(boxes.sx, i, 56)
+                        else
+                            mset(boxes.sx, i, 57)
+                        end
+                    else
+                        if (i % 2 == 0) then
+                            mset(boxes.sx, i, 57)
+                        else
+                            mset(boxes.sx, i, 56)
+                        end
+                    end
+                end
+                mset(boxes.sx, (boxes.sy - 1), 54)
+                mset(boxes.sx, (boxes.ey + 1), 55)
+            else
+                for i = boxes.sy, boxes.ey, 1 do
+                    mset(boxes.sx, i, 2)
+                end
+                mset(boxes.sx, (boxes.sy - 1), 50)
+                mset(boxes.sx, (boxes.ey + 1), 51)
+            end
+        end
+        if (boxes.direction == 'x') then
+            if (boxes.count >= active_count) then
+                for i = boxes.sx, boxes.ex, 1 do
+                    if (boxes.count % 4 == 0) then
+                        if (i % 2 == 0) then
+                            mset(i, boxes.sy, 58)
+                        else
+                            mset(i, boxes.sy, 59)
+                        end
+                    else
+                        if (i % 2 == 0) then
+                            mset(i, boxes.sy, 59)
+                        else
+                            mset(i, boxes.sy, 58)
+                        end
+                    end
+                end
+                mset(boxes.sx - 1, boxes.sy, 52)
+                mset(boxes.ex + 1, boxes.sy, 53)
+            else
+                for i = boxes.sx, boxes.ex, 1 do
+                    mset(i, boxes.sy, 2)
+                end
+                mset(boxes.sx - 1, boxes.sy, 48)
+                mset(boxes.ex + 1, boxes.sy, 49)
+            end
+        end
+        boxes.count = boxes.count + 1
+        if (boxes.count > boxes.max_count) then
+            boxes.count = 0
+        end
     end
 end
 
@@ -587,7 +681,7 @@ function slime_emitters()
                 y = sprite_y,
                 sprite = slime_sprite
             })
-            if (box_collision(player.x, player.y, player.width, player.height, sprite_x + 1, sprite_y, 2, 4)) then
+            if (box_collision(player.x + 4, player.y + 4, player.width, player.height + 4, sprite_x + 4, sprite_y, 4, 6)) then
                 player.hazard_hit = true
                 hazard_hit_animation = 0
             end
