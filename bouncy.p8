@@ -3,9 +3,1788 @@ version 41
 __lua__
 --bouncy by broommoss
 --⬅️➡️⬇️ to move. x,z to debounce
-#include bouncy/bouncy_util.lua
-#include bouncy/bouncy_move.lua
-#include bouncy/bouncy_main.lua
+-- Utilities for LUA programming
+frame_counter = 0
+debug = true
+
+function log(text)
+    if debug then
+        printh(text, "log")
+        -- printh(time() .. " " .. text, "log")
+    end
+end
+
+function shallow_copy(t)
+    local t2 = {}
+    for k, v in pairs(t) do
+        t2[k] = v
+    end
+    return t2
+end
+
+function update_framecount()
+    frame_counter = frame_counter + 1
+    if frame_counter > 30 then
+        frame_counter = 1
+    end
+end
+
+function position_to_maptile_coord(x, y)
+    local result = {}
+    result.x = flr(x / 8)
+    result.y = flr(y / 8)
+    return result
+end
+
+function sign(x)
+    return x > 0 and 1 or x < 0 and -1 or 0
+end
+
+function tile_centers_at_corners(x1, y1, x2, y2, x3, y3, x4, y4)
+    local corners = {}
+    corners[1] = position_to_maptile_coord(x1, y1)
+    corners[2] = position_to_maptile_coord(x2, y2)
+    corners[3] = position_to_maptile_coord(x3, y3)
+    corners[4] = position_to_maptile_coord(x4, y4)
+    corners[1].center_x = (corners[1].x * 8) + 4
+    corners[1].center_y = (corners[1].y * 8) + 4
+    corners[2].center_x = (corners[2].x * 8) + 4
+    corners[2].center_y = (corners[2].y * 8) + 4
+    corners[3].center_x = (corners[3].x * 8) + 4
+    corners[3].center_y = (corners[3].y * 8) + 4
+    corners[4].center_x = (corners[4].x * 8) + 4
+    corners[4].center_y = (corners[4].y * 8) + 4
+    corners[1].flag = fget(mget(corners[1].x, corners[1].y))
+    corners[2].flag = fget(mget(corners[2].x, corners[2].y))
+    corners[3].flag = fget(mget(corners[3].x, corners[3].y))
+    corners[4].flag = fget(mget(corners[4].x, corners[4].y))
+    return corners
+end
+
+function tile_directly_below_player(x1, y1)
+    local tile = {}
+    tile[1] = position_to_maptile_coord(x1 + 2, y1 + 8)
+    tile[1].center_x = (tile[1].x * 8) + 4
+    tile[1].center_y = (tile[1].y * 8) + 4
+    tile[1].flag = fget(mget(tile[1].x, tile[1].y))
+    return tile
+end
+
+function check_sloped_map_collision_y(obj, collision_flag, resolution)
+    result = {
+        collision = false
+    }
+    return result
+end
+
+function check_sloped_map_collision_x(obj, collision_flag, resolution)
+    result = {
+        collision = false
+    }
+    return result
+end
+
+function points_distance(x1, y1, x2, y2)
+    local result = sqrt((((x2 - x1) ^ 2) + ((y2 - y1) ^ 2)))
+    return result
+end
+
+function check_map_collision_y(obj, collision_flag, resolution)
+    local result = {
+        collision = false
+    }
+
+    local distance = abs(obj.dy - obj.y)
+    local direction = sign((obj.dy - obj.y))
+    local p1, p2 = {
+        x = obj.x,
+        y = obj.y,
+        height_mod = 0
+    }, {
+        x = obj.x + obj.width,
+        y = obj.y,
+        height_mod = 0
+    }
+
+    if (direction == -1) then
+        p1.x, p1.y, p1.height_mod = obj.x + 1, obj.y, 0
+        p2.x, p2.y, p2.height_mod = obj.x + obj.width - 1, obj.y, 0
+    elseif (direction == 1) then
+        p1.x, p1.y, p1.height_mod = obj.x + 1, obj.y, (obj.height - resolution)
+        p2.x, p2.y, p2.height_mod = obj.x + obj.width - 1, obj.y, (obj.height - resolution)
+    end
+
+    for i = 0, distance, resolution do
+        -- line(p1.x, p1.y + p1.height_mod + (direction * i), p2.x, p2.y + p2.height_mod + (direction * i), rnd(12))
+        local p1_map_tile = position_to_maptile_coord(p1.x, p1.y + p1.height_mod + (direction * i))
+        local p2_map_tile = position_to_maptile_coord(p2.x, p2.y + p2.height_mod + (direction * i))
+        -- rect(p1_map_tile.x * 8, (p1_map_tile.y) * 8, (p1_map_tile.x * 8) + 8, (p1_map_tile.y * 8) + 8, rnd(12))
+
+        local p1_flag = fget(mget(p1_map_tile.x, p1_map_tile.y))
+        local p2_flag = fget(mget(p2_map_tile.x, p2_map_tile.y))
+        if ((p1_flag & collision_flag) > 0) or ((p2_flag & collision_flag) > 0) then
+            result.collision = true
+            result.flag = p1_flag | p2_flag
+            result.flag1 = p1_flag
+            result.flag2 = p2_flag
+            result.collision_y = p1.y + (direction * i)
+            result.tiles = {}
+            if ((p1_flag & collision_flag) > 0) then
+                result.tiles[#result.tiles + 1] = p1_map_tile
+            end
+            if ((p2_flag & collision_flag) > 0) then
+                result.tiles[#result.tiles + 1] = p2_map_tile
+            end
+            break
+        else
+            result.last_non_collision_y = p1.y + (direction * i)
+        end
+    end
+
+    return result
+end
+
+function box_collision(obj1_x, obj1_y, obj1_w, obj1_h, obj2_x, obj2_y, obj2_w, obj2_h)
+    local collision_x_length = (obj1_w / 2) + (obj2_w / 2)
+    local collision_y_length = (obj1_h / 2) + (obj2_h / 2)
+    local x_diff = abs(obj2_x - obj1_x)
+    local y_diff = abs(obj2_y - obj1_y)
+    if (x_diff <= collision_x_length and y_diff <= collision_y_length) then
+        return true
+    else
+        return false
+    end
+end
+
+function check_map_collision_x(obj, collision_flag, resolution)
+    local result = {
+        collision = false
+    }
+
+    local distance = abs(obj.dx - obj.x)
+    local direction = sign((obj.dx - obj.x))
+    local p1, p2 = {
+        x = obj.x,
+        y = obj.y + resolution,
+        width_mod = 0
+    }, {
+        x = obj.x,
+        y = obj.y + obj.height - resolution,
+        width_mod = 0
+    }
+
+    if (direction == -1) then
+        p1.x, p1.y, p1.width_mod = obj.x + 0.5, obj.y + 2, 0
+        p2.x, p2.y, p2.width_mod = obj.x + 0.5, (obj.y + obj.height - 2), 0
+    elseif (direction == 1) then
+        p1.x, p1.y, p1.width_mod = obj.x, obj.y + 2, obj.width - 0.5
+        p2.x, p2.y, p2.width_mod = obj.x, (obj.y + obj.height - 2), obj.width - 0.5
+    end
+
+    for i = 0, distance, resolution do
+        -- line(p1.x + p1.width_mod + (direction * i), p1.y, p1.x + p1.width_mod + (direction * i), p2.y, rnd(12))
+        local p1_map_tile = position_to_maptile_coord(p1.x + p1.width_mod + (direction * i), p1.y)
+        local p2_map_tile = position_to_maptile_coord(p2.x + p2.width_mod + (direction * i), p2.y)
+        local p1_flag = fget(mget(p1_map_tile.x, p1_map_tile.y))
+        local p2_flag = fget(mget(p2_map_tile.x, p2_map_tile.y))
+        -- rect(p1_map_tile.x * 8, (p1_map_tile.y) * 8, (p1_map_tile.x * 8) + 8, (p1_map_tile.y * 8) + 8, rnd(12))
+
+        if (((p1_flag & collision_flag) > 0) or ((p2_flag & collision_flag) > 0)) then
+            result.collision = true
+            result.flag = p1_flag | p2_flag
+            result.flag1 = p1_flag
+            result.flag2 = p2_flag
+            result.collision_x = p1.x + (direction * i)
+            result.tiles = {}
+            if ((p1_flag & collision_flag) > 0) then
+                result.tiles[#result.tiles + 1] = p1_map_tile
+            end
+            if ((p2_flag & collision_flag) > 0) then
+                result.tiles[#result.tiles + 1] = p2_map_tile
+            end
+            break
+        else
+            result.last_non_collision_x = p1.x + (direction * i)
+        end
+    end
+
+    return result
+end
+
+
+
+
+function move_x(player)
+
+    if (player.stored_speed_x ~= 0) then
+        if (sign(player.speed_x) == sign(player.stored_speed_x) or player.speed_x == 0) then
+            player.dump_stored_speed_x = true
+        elseif (sign(player.speed_x) ~= sign(player.stored_speed_x) and abs(player.speed_x) > 1) then
+            player.stored_speed_x = 0
+        end
+    end
+
+    if (player.dump_stored_speed_x) then
+        player.speed_x = player.speed_x + player.stored_speed_x
+        player.stored_speed_x = 0
+        player.dump_stored_speed_x = false
+        local abs_speed = abs(player.speed_x)
+        if (abs_speed > gravity) then
+            if (abs_speed < (stored_energy_limit / 3)) then
+                sfx(0, -1, 8, 1)
+            elseif (abs_speed >= (stored_energy_limit / 3) and abs_speed < ((stored_energy_limit / 3) * 2)) then
+                sfx(0, -1, 8, 2)
+            elseif (abs_speed >= ((stored_energy_limit / 3) * 2)) then
+                sfx(0, -1, 8, 4)
+            end
+        end
+    end
+
+    if (player.speed_x > 0 or player.speed_x < 0) then
+        player.dx = player.x + player.speed_x
+    end
+
+    set_ball_sprite_index()
+
+    local collision_result = check_map_collision_x(player,
+        (bouncy_terrain_flag | sloped_terrain_l_flag | sloped_terrain_r_flag | terrain_flag | hazard_flag |
+            top_only_collision_flag), resolution)
+
+    if (collision_result.collision == true) then
+
+        if (collision_result.flag & hazard_flag > 0) then
+            check_standard_hazard_hit(collision_result, hazard_flag)
+        end
+
+        if (collision_result.flag & sloped_terrain_l_flag > 0) then
+            handle_slope_collision_left_x(collision_result)
+        elseif (collision_result.flag & sloped_terrain_r_flag > 0) then
+            handle_slope_collision_right_x(collision_result)
+        elseif ((collision_result.flag & bouncy_terrain_flag) > 0) then
+            handle_bouncy_collision_x(collision_result)
+        elseif ((collision_result.flag & terrain_flag > 0)) then
+            -- normal terrain
+            player.colliding_x = true
+            if (collision_result.last_non_collision_x ~= nil) then
+                player.x = collision_result.last_non_collision_x
+            else
+                player.x = collision_result.collision_x
+            end
+            calculate_stored_energy_x()
+            player.dx = player.x
+            player.speed_x = 0
+        elseif ((collision_result.flag & top_only_collision_flag > 0)) then
+            calculate_top_only_collision_terrain(collision_result)
+            player.colliding_x = false
+            player.x = player.dx
+        else
+            player.colliding_x = false
+            player.x = player.dx
+        end
+    else
+        player.colliding_x = false
+        player.x = player.dx
+    end
+
+end
+
+function dump_store_speed_y_sfx()
+    local abs_speed = abs(player.speed_y)
+    if (abs_speed > gravity) then
+        if (abs_speed < (stored_energy_limit / 3)) then
+            sfx(0, -1, 0, 1)
+        elseif (abs_speed >= (stored_energy_limit / 3) and abs_speed < ((stored_energy_limit / 3) * 2)) then
+            sfx(0, -1, 0, 2)
+        elseif (abs_speed >= ((stored_energy_limit / 3) * 2)) then
+            sfx(0, -1, 0, 4)
+        end
+    end
+end
+
+function move_y(player)
+
+    if (player.dump_stored_speed_y) then
+        player.speed_y = player.speed_y + player.stored_speed_y
+        player.stored_speed_y = 0
+        player.dump_stored_speed_y = false
+        dump_store_speed_y_sfx()
+    end
+
+    if (player.speed_y > 0 or player.speed_y < 0) then
+        player.dy = player.dy + player.speed_y
+        if (sign(player.dy) == 1 and player.stored_speed_y > 0) then
+            player.dump_stored_speed_y = true
+        end
+    end
+
+    local collision_result = check_map_collision_y(player,
+        (bouncy_terrain_flag | sloped_terrain_l_flag | sloped_terrain_r_flag | terrain_flag | hazard_flag |
+            top_only_hazard_flag | top_only_collision_flag), resolution)
+
+    if (collision_result.collision == true) then
+        -- check hazard collisions
+        if (collision_result.flag & hazard_flag > 0) then
+            check_standard_hazard_hit(collision_result, hazard_flag)
+        elseif (collision_result.flag & top_only_hazard_flag > 0) then
+            check_top_only_hazard_hit(collision_result, top_only_hazard_flag)
+        end
+        if (collision_result.flag1 & sloped_terrain_l_flag > 0) then
+            handle_slope_collision_left_y(collision_result)
+        elseif (collision_result.flag2 & sloped_terrain_r_flag > 0) then
+            handle_slope_collision_right_y(collision_result)
+        elseif ((collision_result.flag & bouncy_terrain_flag) > 0) then
+            handle_bouncy_collision_y(collision_result)
+        elseif ((collision_result.flag & terrain_flag > 0) or (collision_result.flag & top_only_collision_flag > 0)) then
+            -- normal terrain
+            player.colliding_y = true
+            player.y = collision_result.collision_y
+            if((collision_result.flag & terrain_flag == 0))then
+                calculate_top_only_collision_terrain(collision_result)
+            end
+            calculate_stored_energy_y()
+            player.dy = player.y
+            player.speed_y = 0
+        else
+            player.colliding_y = false
+            player.y = player.dy
+        end
+    else
+        player.colliding_y = false
+        player.y = player.dy
+    end
+
+end
+
+function calculate_top_only_collision_terrain(collision_result)
+    if (collision_result.flag & top_only_collision_flag > 0) then
+        local tile = nil
+        for _, test_tile in pairs(collision_result.tiles) do
+            if (tile == nil) then
+                tile = test_tile
+            elseif test_tile.y < tile.y then
+                tile = test_tile
+            end
+        end
+        player.y = ((tile.y * 8) - 8)
+    end
+end
+
+function calculate_stored_energy_x()
+    local stored_energy_x = player.dx - player.x
+    if (stored_energy_x ~= 0) then
+        local dynamic_bounce_loss_ratio = 1
+        if (player.debounce) then
+            dynamic_bounce_loss_ratio = dynamic_bounce_loss_ratio - debounce_ratio
+        end
+        player.stored_speed_x = (player.stored_speed_x - stored_energy_x) * dynamic_bounce_loss_ratio
+        if (abs(player.stored_speed_x) > stored_energy_limit) then
+            player.stored_speed_x = stored_energy_limit * sign(player.stored_speed_x)
+        end
+    end
+end
+
+function handle_bouncy_collision_x(collision_result)
+    local tile = nil
+    for _, test_tile in pairs(collision_result.tiles) do
+        if (tile == nil) then
+            tile = test_tile
+        else
+            if (player.speed_x <= 0) then
+                if (test_tile.x < tile.x) then
+                    tile = test_tile
+                end
+            else
+                if (test_tile.x > tile.x) then
+                    tile = test_tile
+                end
+            end
+        end
+    end
+    if (player.speed_x <= 0) then
+        player.x = (tile.x * 8) + 9
+    else
+        player.x = (tile.x * 8) - 9
+    end
+    if (player.debounce == true) then
+        player.speed_x = player.speed_x * -1.1
+    else
+        player.speed_x = player.speed_x * -1.6
+    end
+    if (abs(player.speed_x) > max_x_speed) then
+        if (sign(player.speed_x) > 0) then
+            player.speed_x = max_x_speed
+        else
+            player.speed_x = max_x_speed * -1
+        end
+    end
+
+    player.dx = player.x
+    player.dump_stored_speed_x = true
+end
+
+function handle_bouncy_collision_y(collision_result)
+    local tile = nil
+    for _, test_tile in pairs(collision_result.tiles) do
+        if (tile == nil) then
+            tile = test_tile
+        else
+            if (player.speed_y <= 0) then
+                if (test_tile.y < tile.y) then
+                    tile = test_tile
+                end
+            else
+                if (test_tile.y > tile.y) then
+                    tile = test_tile
+                end
+            end
+        end
+    end
+    if (player.speed_y <= 0) then
+        player.y = (tile.y * 8) + 9
+    else
+        player.y = (tile.y * 8) - 9
+    end
+    if (player.debounce == true) then
+        player.speed_y = player.speed_y * -1.1
+    else
+        player.speed_y = player.speed_y * -1.6
+    end
+    player.dy = player.y
+    player.dump_stored_speed_y = true
+end
+
+function handle_slope_collision_left_y(collision_result)
+    last_slope_flag_used = sloped_terrain_l_flag
+    player.colliding_y = true
+    local tile = nil
+    for _, test_tile in pairs(collision_result.tiles) do
+        if (tile == nil) then
+            tile = test_tile
+        elseif test_tile.x < tile.x then
+            tile = test_tile
+        end
+    end
+    local tile = collision_result.tiles[1]
+    local tile_min_x = (tile.x * 8)
+    local tile_max_x = (tile.x * 8) + 8
+    local tile_min_y = (tile.y * 8)
+    local x_speed = player.speed_x
+    if (x_speed < slope_speed_threshold or player.debounce) then
+        if ((player.x + 0) >= (tile_min_x) and (player.x + 0) <= tile_max_x) then
+            local block_x = ((player.x + 0) - tile_min_x)
+            if (block_x < 0) then
+                block_x = 0
+            end
+            player.y = tile_min_y + block_x - 6
+            common_slope_y_calculation()
+        end
+    else
+        player.y = player.dy
+        player.stored_speed_y = 0
+    end
+    player.x = player.dx
+
+end
+
+function handle_slope_collision_left_x(collision_result)
+    last_slope_flag_used = sloped_terrain_l_flag
+    player.colliding_x = true
+    local tile = nil
+    for _, test_tile in pairs(collision_result.tiles) do
+        if (tile == nil) then
+            tile = test_tile
+        elseif test_tile.y > tile.y then
+            tile = test_tile
+        end
+    end
+    local tile = collision_result.tiles[1]
+    local tile_min_x = (tile.x * 8)
+    local tile_max_x = (tile.x * 8) + 8
+    local tile_min_y = (tile.y * 8)
+    local x_speed = player.speed_x
+    if (x_speed < slope_speed_threshold or player.debounce) then
+        if ((player.x + 0) >= tile_min_x and (player.x + 0) <= tile_max_x) then
+            local block_x = ((player.x + 0) - tile_min_x)
+            if (block_x < 0) then
+                block_x = 0
+            end
+            player.y = tile_min_y + block_x - 8
+            common_slope_y_calculation()
+        end
+    else
+        player.y = player.dy
+        player.stored_speed_y = 0
+    end
+    player.x = player.dx
+
+end
+
+function handle_slope_collision_right_y(collision_result)
+    last_slope_flag_used = sloped_terrain_r_flag
+    player.colliding_y = true
+    local tile = nil
+    for _, test_tile in pairs(collision_result.tiles) do
+        if (tile == nil) then
+            tile = test_tile
+        elseif test_tile.x > tile.x then
+            tile = test_tile
+        end
+    end
+    local tile = collision_result.tiles[1]
+    local tile_min_x = (tile.x * 8)
+    local tile_max_x = (tile.x * 8) + 8
+    local tile_max_y = (tile.y * 8) + 8
+    local x_speed = player.speed_x
+    if (x_speed > (slope_speed_threshold * -1) or player.debounce) then
+        if ((player.x + 8) >= tile_min_x and (player.x + 8) <= tile_max_x) then
+            local block_x = ((player.x + 8) - tile_min_x)
+            if (block_x < 0) then
+                block_x = 0
+            end
+            player.y = tile_max_y - block_x - 6
+            common_slope_y_calculation()
+        end
+    else
+        player.y = player.dy
+        player.stored_speed_y = 0
+    end
+    player.x = player.dx
+
+end
+
+function handle_slope_collision_right_x(collision_result)
+    last_slope_flag_used = sloped_terrain_r_flag
+    player.colliding_x = true
+    local tile = nil
+    for _, test_tile in pairs(collision_result.tiles) do
+        if (tile == nil) then
+            tile = test_tile
+        elseif test_tile.y > tile.y then
+            tile = test_tile
+        end
+    end
+    local tile = collision_result.tiles[1]
+    local tile_min_x = (tile.x * 8)
+    local tile_max_x = (tile.x * 8) + 8
+    local tile_max_y = (tile.y * 8) + 8
+    local x_speed = player.speed_x
+    if (x_speed > (slope_speed_threshold * -1) or player.debounce) then
+        if ((player.x + 8) >= tile_min_x and (player.x + 8) <= tile_max_x) then
+            local block_x = ((player.x + 8) - tile_min_x)
+            if (block_x < 0) then
+                block_x = 0
+            end
+            player.y = tile_max_y - block_x - 8
+            common_slope_y_calculation()
+        end
+    else
+        player.y = player.dy
+        player.stored_speed_y = 0
+    end
+    player.x = player.dx
+
+end
+
+function common_slope_y_calculation()
+    if (player.debounce) then
+        player.speed_y = gravity * 3
+    end
+    if (btn(3) and (player.debounce == false)) then
+        player.slope_jump_mode = 2
+        calculate_stored_energy_slope_y()
+        player.dy = player.y
+    elseif player.slope_jump_mode == 2 then
+        player.dump_stored_speed_y = true
+        -- if (last_slope_flag_used == sloped_terrain_r_flag) then
+        --     player.stored_speed_x = (player.stored_speed_y/1.7)
+        -- else
+        --     player.stored_speed_x = ((player.stored_speed_y/1.7) * -1)
+        -- end
+        player.dump_stored_speed_x = true
+        player.speed_y = 0
+        player.dy = player.y
+        player.slope_jump_mode = 1
+    elseif (player.slope_jump_mode > 0 and player.slope_jump_mode < 2) then
+        player.slope_jump_mode = player.slope_jump_mode - 1
+        player.y = player.dy
+    else
+        player.dy = player.y
+        player.speed_y = 0
+        player.stored_speed_y = 0
+    end
+end
+
+function calculate_stored_energy_slope_y()
+    local stored_energy_y_after_collision = player.speed_y
+    if (player.speed_y > gravity or player.speed_y < 0) then
+        local dynamic_bounce_loss_ratio = bounce_loss_ratio
+        if (player.debounce) then
+            dynamic_bounce_loss_ratio = dynamic_bounce_loss_ratio - debounce_ratio
+        end
+        player.stored_speed_y = (player.stored_speed_y - (player.speed_y / 5)) * (dynamic_bounce_loss_ratio)
+        if (abs(player.stored_speed_y) > stored_energy_limit) then
+            player.stored_speed_y = (stored_energy_limit * sign(player.stored_speed_y))
+        end
+    end
+end
+
+function calculate_stored_energy_y()
+    local stored_energy_y_after_collision = player.speed_y
+    if (player.speed_y > gravity or player.speed_y < 0) then
+        local dynamic_bounce_loss_ratio = bounce_loss_ratio
+        if (player.debounce) then
+            dynamic_bounce_loss_ratio = dynamic_bounce_loss_ratio - debounce_ratio
+        end
+        player.stored_speed_y = (player.stored_speed_y - player.speed_y) * dynamic_bounce_loss_ratio
+        if (abs(player.stored_speed_y) > stored_energy_limit) then
+            player.stored_speed_y = (stored_energy_limit * sign(player.stored_speed_y))
+        end
+    else
+        player.dump_stored_speed_y = true
+    end
+end
+
+function check_standard_hazard_hit(collision_result, hazard_flag)
+    local tiles = tile_centers_at_corners(player.x, player.y, player.x + 8, player.y, player.x, player.y + 8,
+        player.x + 8, player.y + 8)
+    for _, tile in pairs(tiles) do
+        if ((tile.flag & hazard_flag) > 0) then
+            local hazard_collides = box_collision(player.x + 4, player.y + 4, player.width, player.height,
+                tile.center_x, tile.center_y, 3.5, 3.5)
+            if (hazard_collides) then
+                player.hazard_hit = true
+                hazard_hit_animation = 0
+                break
+            end
+        end
+    end
+end
+
+function check_top_only_hazard_hit(collision_result, top_only_hazard_flag)
+    local tiles = tile_centers_at_corners(player.x, player.y, player.x + 8, player.y, player.x, player.y + 8,
+        player.x + 8, player.y + 8)
+    for _, tile in pairs(tiles) do
+        if ((tile.flag & top_only_hazard_flag) > 0) then
+            local hazard_collides = box_collision(player.x + 4, player.y + 4, player.width, player.height,
+                tile.center_x, (tile.center_y - 2), 4, 4)
+            if (hazard_collides) then
+                player.hazard_hit = true
+                hazard_hit_animation = 0
+                break
+            end
+        end
+    end
+end
+
+function apply_friction(player)
+    local friction = ground_friction
+    if (player.colliding_y == false) then
+        friction = air_friction
+    end
+
+    if (player.speed_x > 0) then
+        player.speed_x = player.speed_x - friction
+        if (player.speed_x < 0) then
+            player.speed_x = 0
+        end
+    end
+    if (player.speed_x < 0) then
+        player.speed_x = player.speed_x + friction
+        if (player.speed_x > 0) then
+            player.speed_x = 0
+        end
+    end
+
+    local quantum_gravity = gravity
+    if (player.speed_x > 5) then
+        quantum_gravity = relativity_gravity
+    end
+    player.speed_y = player.speed_y + quantum_gravity
+
+    if (player.speed_y > vertical_add_energy_limit) then
+        player.speed_y = vertical_add_energy_limit
+    end
+end
+
+function non_physical_collisions()
+    for i = 1, #checkpoint_locations, 1 do
+        if (i ~= current_checkpoint) then
+            if (box_collision(player.x, player.y, player.width, player.height, checkpoint_locations[i][1],
+                checkpoint_locations[i][2], 8, 8)) then
+                sfx(1)
+                current_checkpoint = i
+            end
+        end
+    end
+
+end
+
+
+
+-- pico8_import utilities.lua
+function _init()
+    -- log('bouncy init called')
+    terrain_flag = 0x2
+    bubble_power_enabled = false
+    death_count = 0
+    hazard_flag = 0x4
+    camera_offset_x = 0
+    camera_offset_y = 0
+    bouncy_terrain_flag = 0x80
+    top_only_hazard_flag = 0x8
+    sloped_terrain_l_flag = 0x10
+    sloped_terrain_r_flag = 0x20
+    top_only_collision_flag = 0x40
+    -- {{letter='?',x=0,y=0,color=7}}
+    letters_to_draw = {}
+    button_sets = {{
+        buttons = {{
+            x = 65,
+            y = 34,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 66,
+            y = 37,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 67,
+            y = 34, 
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 68,
+            y = 37,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 69 ,
+            y = 34,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 70,
+            y = 37,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }},
+        label = 'final_door',
+        final_door_open = false
+    }, {
+        buttons = {{
+            x = 1,
+            y = 20,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }, {
+            x = 14,
+            y = 20,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }},
+        label = 'seed_door',
+        seed_door_open = false
+    }, {
+        buttons = {{
+            x = 16,
+            y = 53,
+            state = false,
+            timeout = 30,
+            always_on = true,
+            text = {
+                letter = 'P',
+                x = 141,
+                y = 441,
+                color = 7
+            }
+
+        }, {
+            x = 126,
+            y = 62,
+            state = false,
+            timeout = 30,
+            always_on = true,
+            text = {
+                letter = 'U',
+                x = 157,
+                y = 441,
+                color = 7
+            }
+        }, {
+            x = 45,
+            y = 44,
+            state = false,
+            timeout = 30,
+            always_on = true,
+            text = {
+                letter = 'S',
+                x = 173,
+                y = 441,
+                color = 7
+            }
+        }, {
+            x = 78,
+            y = 42,
+            state = false,
+            timeout = 30,
+            always_on = true,
+            text = {
+                letter = 'H',
+                x = 189,
+                y = 441,
+                color = 7
+            }
+        }, {
+            x = 113,
+            y = 44,
+            state = false,
+            timeout = 30,
+            always_on = true,
+            text = {
+                letter = chr(94),
+                x = 205,
+                y = 443,
+                color = 7
+            }
+        }},
+        label = 'blue_goo',
+        blue_goo_open = false
+    },{
+        buttons = {{
+            x = 82,
+            y = 20,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }},
+        label = 'laser_switch',
+        laser_switch_activated = false
+    }}
+    final_door_animation = 0
+    seed_captured = false
+    game_over_animation = 0
+    game_over = false
+    last_slope_flag_used = sloped_terrain_l_flag
+    slope_speed_threshold = 4
+    current_checkpoint = -1
+    rolling_ball_index_count = 1
+    -- electric boxes (tile_start_x,tile_start_y,tile_end_x,tile_end_y,alignment,max_count,animation_count)
+    electric_boxes = {{
+        sx = 57,
+        sy = 50,
+        ex = 57,
+        ey = 51,
+        direction = 'y',
+        max_count = 90,
+        style = 'osc',
+        count = 0
+    }, {
+        sx = 76,
+        sy = 48,
+        ex = 80,
+        ey = 48,
+        direction = 'x',
+        max_count = 90,
+        style = 'osc',
+        count = 0
+    }, {
+        sx = 76,
+        sy = 45,
+        ex = 80,
+        ey = 45,
+        direction = 'x',
+        max_count = 45,
+        style = 'osc',
+        count = 0
+    }, {
+        sx = 27,
+        sy = 35,
+        ex = 30,
+        ey = 35,
+        direction = 'x',
+        max_count = 60,
+        style = 'osc',
+        count = 0
+    }, {
+        sx = 48,
+        sy = 33,
+        ex = 48,
+        ey = 36,
+        direction = 'y',
+        max_count = 145,
+        style = 'osc',
+        count = 0
+    }, {
+        sx = 51,
+        sy = 33,
+        ex = 51,
+        ey = 36,
+        direction = 'y',
+        style = 'osc',
+        max_count = 90,
+        count = 0
+    }, {
+        sx = 54,
+        sy = 33,
+        ex = 54,
+        ey = 36,
+        style = 'osc',
+        direction = 'y',
+        max_count = 120,
+        count = 0
+    }, {
+        sx = 78,
+        sy = 17,
+        ex = 78,
+        ey = 30,
+        direction = 'y',
+        max_count = 160,
+        count = 0,
+        style = 'on',
+        label = 'laser_switch_pair'
+    }}
+
+    -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
+    slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},
+                               {11, 41, 11, 49, 140, 0}, {11, 41, 11, 49, 140, 0}, {126, 41, 126, 61, 200, 0},
+                               {99, 44, 99, 44, 70, 0}, {104, 44, 104, 45, 70, 0},{109, 44, 109, 45, 120, 0}}
+    slime_sprite_indexes = {32, 33, 34}
+    -- x,y,sprite#
+    slime_sprites_to_draw = {}
+    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {992, 192}, {752, 224}, {448, 168}, {88, 216}, {136, 490}}
+    checkpoint_sprites = {73, 74}
+    rolling_ball_indexes = {7, 8, 9, 10}
+    x_squish_ball_indexes = {27, 28, 29}
+    y_squish_ball_indexes = {11, 12, 13}
+    horizontal_add_energy = 0.7
+    vertical_add_energy = 1.7
+    bounce_loss_ratio = 0.8
+    debounce_ratio = 0.6
+    max_x_speed = 30
+    vertical_add_energy_limit = 8
+    horizontal_add_energy_limit = 5
+    stored_energy_limit = 8
+    ground_friction = 0.3
+    air_friction = 0.2
+    gravity = 0.3
+    relativity_gravity = 0.1
+    resolution = 0.1
+    camera_x_front_boundry = 212
+    camera_y_top_boundry = 212
+    camera_y_bottom_boundry = 340
+
+    camera_x_back_boundry = 0
+    hazard_hit_animation = 0
+    seed_door_animation = 0
+    blue_goo_animation = 0
+    music_pattern_playing = -1
+    player_defaults = {
+        hazard_hit = false,
+        x = 64,
+        y = 112,
+        dx = 64,
+        dy = 112,
+        width = 8,
+        height = 8,
+        speed_x = 0,
+        speed_y = 0,
+        stored_speed_x = 0,
+        stored_speed_y = 0,
+        dump_stored_speed_y = false,
+        dump_stored_speed_x = false,
+        ball_sprite_index = rolling_ball_indexes[1],
+        ball_sprite_flip_x = false,
+        ball_sprite_flip_y = false,
+        colliding_x = false,
+        colliding_y = false,
+        debounce = false,
+        slope_jump_mode = 0
+    }
+    player = shallow_copy(player_defaults)
+
+end
+
+function get_user_input(player)
+    if btn(0) then
+        if (player.colliding_y and btn(3)) then
+            player.speed_x = player.speed_x * 0.95
+        else
+            player.speed_x = player.speed_x - horizontal_add_energy
+            if (player.speed_x <= (horizontal_add_energy_limit * -1)) then
+                player.speed_x = (horizontal_add_energy_limit * -1)
+            end
+        end
+    end
+    if btn(1) then
+        if (player.colliding_y and btn(3)) then
+            player.speed_x = player.speed_x * 0.95
+        else
+            player.speed_x = player.speed_x + horizontal_add_energy
+            if (player.speed_x >= horizontal_add_energy_limit) then
+                player.speed_x = horizontal_add_energy_limit
+            end
+
+        end
+    end
+    if btn(3) then
+        player.speed_y = player.speed_y + vertical_add_energy
+        if (player.speed_y >= vertical_add_energy_limit) then
+            player.speed_y = vertical_add_energy_limit
+        end
+        if (player.colliding_y) then
+            player.speed_x = player.speed_x * 0.95
+        end
+    end
+    if btn(2) and bubble_power_enabled then
+        player.speed_y = player.speed_y - (gravity + resolution)
+        if (player.speed_y <= (vertical_add_energy_limit * -1)) then
+            player.speed_y = vertical_add_energy_limit * -1
+        end
+    end
+    if btn(4) or btn(5) then
+        player.debounce = true
+    else
+        player.debounce = false
+    end
+    -- if btn(5) then
+    --     player.hazard_hit = true
+    -- end
+
+end
+
+function set_ball_sprite_index()
+    player.ball_sprite_flip_x = false
+    player.ball_sprite_flip_y = false
+
+    local dx = player.dx
+    local x = player.x
+    local dy = player.dy
+    local y = player.y
+
+    if (dx < x) then
+        rolling_ball_index_count = rolling_ball_index_count - 1
+        if (rolling_ball_index_count < 1) then
+            rolling_ball_index_count = 4
+        end
+    elseif (dx > x) then
+        rolling_ball_index_count = rolling_ball_index_count + 1
+        if (rolling_ball_index_count > 4) then
+            rolling_ball_index_count = 1
+        end
+    end
+
+    local x_squish_ball_index = get_x_squish_ball_index()
+    local y_squish_ball_index = get_y_squish_ball_index()
+
+    if ((x_squish_ball_index > -1 and player.colliding_x) or (y_squish_ball_index > -1 and player.colliding_y)) then
+        if (y_squish_ball_index > -1) then
+            player.ball_sprite_index = y_squish_ball_indexes[y_squish_ball_index]
+            if (sign(player.stored_speed_y) == 1) then
+                player.ball_sprite_flip_y = true
+            end
+        else
+            player.ball_sprite_index = x_squish_ball_indexes[x_squish_ball_index]
+            if (dx < x) then
+                player.ball_sprite_flip_x = true
+            end
+        end
+    else
+        player.ball_sprite_index = rolling_ball_indexes[rolling_ball_index_count]
+    end
+
+end
+
+function get_x_squish_ball_index()
+    local result = -1
+    local abs_stored_speed_x = abs(player.stored_speed_x)
+
+    if abs_stored_speed_x > 2.5 and abs_stored_speed_x <= 5 then
+        result = 1
+    elseif abs_stored_speed_x > 5 and abs_stored_speed_x <= 8 then
+        result = 2
+    elseif abs_stored_speed_x > 8 then
+        result = 3
+    end
+
+    return result
+end
+
+function get_y_squish_ball_index()
+    local result = -1
+    local abs_stored_speed_x = abs(player.stored_speed_y)
+
+    if abs_stored_speed_x > 2.5 and abs_stored_speed_x <= 5 then
+        result = 1
+    elseif abs_stored_speed_x > 5 and abs_stored_speed_x <= 8 then
+        result = 2
+    elseif abs_stored_speed_x > 8 then
+        result = 3
+    end
+
+    return result
+end
+
+function reset_player()
+    pal()
+    death_count = death_count + 1
+    player = shallow_copy(player_defaults)
+    camera_x_front_boundry = 212
+    camera_x_back_boundry = 0
+    hazard_hit_animation = 0
+    if (current_checkpoint > 0) then
+        checkpoint = checkpoint_locations[current_checkpoint]
+        player.x = checkpoint[1]
+        player.y = checkpoint[2]
+        player.dx = checkpoint[1]
+        player.dy = checkpoint[2]
+        if (current_checkpoint == 1) then
+            camera_x_front_boundry = 212
+            camera_x_back_boundry = 0
+        else
+            camera_x_front_boundry = player.x + 12
+            camera_x_back_boundry = player.x - 28
+            camera_offset_x = player.x - 72
+        end
+    end
+end
+
+function _update()
+
+    update_framecount()
+    if (player.hazard_hit) then
+        hazard_hit_animation = hazard_hit_animation + 1
+        if (hazard_hit_animation > 30) then
+            reset_player()
+        end
+    else
+        update_buttons()
+        update_seed_door()
+        update_blue_goo()
+        update_electric_boxes()
+        update_seed_status()
+        update_final_door()
+        get_user_input(player)
+        move_x(player)
+        move_y(player)
+        non_physical_collisions()
+        slime_emitters()
+        apply_friction(player)
+        check_oob()
+    end
+
+end
+
+function check_oob()
+    if(player.x < -8 or player.y < -8 or player.x > 1024 or player.y > 520)then
+        player.hazard_hit = true
+        hazard_hit_animation = 0
+    end
+end
+
+
+
+
+function update_seed_status()
+    if (seed_captured == false and (final_door_animation > 0)) then
+        if (box_collision(player.x + 4, player.y + 4, 8, 8, 996, 268, 6, 6) == true) then
+            seed_captured = true
+            mset(124, 33, 0)
+            mset(124, 34, 0)
+            bubble_power_enabled = false
+            blue_goo_animation = 109
+        end
+    else
+        if (seed_captured == true and box_collision(player.x + 4, player.y + 4, 8, 8, 64, 120, 16, 8) == true and final_door_animation > 0) then
+            game_over = true
+            seed_captured = false
+            game_over_animation = 1
+            mset(15, 14, 20)
+            mset(14, 14, 6)
+
+        end
+    end
+end
+
+function handle_game_over_animation()
+    if (game_over == true and game_over_animation > 0) then
+        if (game_over_animation == 1) then
+            sfx(47, -1)
+        elseif (game_over_animation == 30) then
+            mset(7, 14, 124)
+            mset(8, 14, 124)
+        elseif (game_over_animation == 90) then
+            mset(7, 14, 123)
+        elseif (game_over_animation == 150) then
+            mset(7, 13, 122)
+            sfx(48, -1)
+        elseif (game_over_animation == 300) then
+            music(57, -1)
+        else
+            if (game_over_animation >= 301) then
+                print('A GAME BY BROOMMOSS', 24, 60, 11)
+                print('A GAME BY BROOMMOSS', 25, 61, 0)
+            end
+            if (game_over_animation >= 420) then
+                print('YOU DIED ' .. death_count .. ' TIMES', 29, 70, 0)
+                print('YOU DIED ' .. death_count .. ' TIMES', 30, 71, 7)
+            end
+            if (game_over_animation >= 540) then
+                if (death_count == 0) then
+                    print('RANK S : BETTER THAN MOSS', 14, 82, 0)
+                    print('RANK S : BETTER THAN MOSS', 15, 82, 11)
+                    circ(player.x + 3, player.y + 3, 8, 7)
+                    circ(player.x + 3, player.y + 3, 7, 10)
+                    circ(player.x + 3, player.y + 3, 6, 7)
+                    circ(player.x + 3, player.y + 3, 5, 10)
+                elseif (death_count >= 1 and death_count < 10) then
+                    print('RANK A : APEX BOUNCER', 20, 81, (9))
+                    print('RANK A : APEX BOUNCER', 21, 82, (10))
+                elseif (death_count >= 10 and death_count < 30) then
+                    print('RANK B : BONIFIED BOUNCER', 14, 81, (9))
+                    print('RANK B : BONIFIED BOUNCER', 15, 82, (10))
+                elseif (death_count >= 30 and death_count < 50) then
+                    print('RANK C : CERTIFIED BOUNCER', 12, 81, (0))
+                    print('RANK C : CERTIFIED BOUNCER', 13, 82, (7))
+                elseif (death_count >= 50 and death_count < 60) then
+                    print('RANK D : DARING BOUNCER', 18, 81, (0))
+                    print('RANK D : DARING BOUNCER', 19, 82, (7))
+                elseif (death_count >= 60 and death_count < 70) then
+                    print('RANK F : FAMOUS BOUNCER', 18, 81, (0))
+                    print('RANK F : FAMOUS BOUNCER', 19, 82, (7))
+                elseif (death_count >= 70 and death_count < 80) then
+                    print('RANK G : GOOD BOUNCER', 20, 81, (0))
+                    print('RANK G : GOOD BOUNCER', 21, 82, (7))
+                elseif (death_count >= 80 and death_count < 90) then
+                    print('RANK H : HARDY BOUNCER', 19, 81, (0))
+                    print('RANK H : HARDY BOUNCER', 20, 82, (7))
+                elseif (death_count >= 90 and death_count < 100) then
+                    print('RANK J : JOVIAL BOUNCER', 18, 81, (0))
+                    print('RANK J : JOVIAL BOUNCER', 19, 82, (7))
+                elseif (death_count >= 100) then
+                    print('RANK K : KINDLY BOUNCER', 18, 81, (0))
+                    print('RANK K : KINDLY BOUNCER', 19, 82, (7))
+                end
+            end
+            if (game_over_animation >= 800) then
+                print('THANKS FOR PLAYING!', 24, 91, 11)
+                print('THANKS FOR PLAYING!', 25, 92, 0)
+            end
+        end
+        if (game_over_animation < 1000) then
+            game_over_animation = game_over_animation + 1
+        end
+    end
+end
+
+function draw_seed()
+    if (seed_captured == true) then
+        spr(61, player.x, player.y)
+        print('RETURN', 985, 256, 11)
+        print('TO', 993, 262, 11)
+        print('START', 987, 268, 11)
+    end
+end
+
+function update_buttons()
+    for _, bset in pairs(button_sets) do
+        local all_on = true
+        for _, button in pairs(bset.buttons) do
+            if (box_collision(player.x + 4, player.y + 4, 8, 8, ((button.x * 8) + 4), ((button.y * 8) + 4), 10, 10) and
+                button.timeout < 1) then
+                if (button.state == false) then
+                    button.state = true
+                    set_button_sprite(button)
+                    sfx(0, -1, 16, 6)
+                    if (bset.label == 'blue_goo') then
+                        handle_blue_goo_button_activate(button)
+                    end
+                else
+                    if (button.always_on == false) then
+                        button.state = false
+                        set_button_sprite(button)
+                        sfx(0, -1, 24, 6)
+                    end
+                end
+                button.timeout = 20
+
+            end
+            if (button.timeout > 0) then
+                button.timeout = button.timeout - 1
+            end
+            if (button.state == false) then
+                all_on = false
+            end
+        end
+        if (all_on) then
+            if (bset.label == 'seed_door') then
+                if (bset.seed_door_open == false) then
+                    seed_door_animation = 1
+                    bset.seed_door_open = true
+                end
+            elseif (bset.label == 'blue_goo') then
+                if (bset.blue_goo_open == false) then
+                    blue_goo_animation = 1
+                    bset.blue_goo_open = true
+                end
+            elseif (bset.label == 'final_door') then
+                if (bset.final_door_open == false) then
+                    final_door_animation = 1
+                    bset.final_door_open = true
+                end
+            elseif (bset.label == 'laser_switch') then
+                if (bset.laser_switch_activated == false) then
+                    bset.laser_switch_activated  = true
+                    for _,box in pairs(electric_boxes) do
+                        if(box.label=='laser_switch_pair')then
+                            box.style = 'off'
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+function handle_blue_goo_button_activate(button)
+    letters_to_draw[(#letters_to_draw + 1)] = button.text
+    local computer_tile_1 = position_to_maptile_coord(button.text.x, button.text.y)
+    mset(computer_tile_1.x, computer_tile_1.y, 97)
+    mset(computer_tile_1.x + 1, computer_tile_1.y, 98)
+end
+
+function update_blue_goo()
+    if (blue_goo_animation > 0) then
+        if (bubble_power_enabled == false) then
+            if (blue_goo_animation == 1) then
+                mset(28, 57, 96)
+            elseif (blue_goo_animation == 15) then
+                mset(28, 57, 113)
+                mset(28, 58, 113)
+            elseif (blue_goo_animation == 30) then
+                mset(28, 57, 96)
+                mset(28, 58, 96)
+                mset(28, 59, 96)
+            elseif (blue_goo_animation == 45) then
+                mset(28, 57, 113)
+                mset(28, 58, 113)
+                mset(28, 59, 113)
+                mset(28, 60, 113)
+            elseif (blue_goo_animation == 60) then
+                mset(28, 57, 96)
+                mset(28, 58, 96)
+                mset(28, 59, 96)
+                mset(28, 60, 96)
+                mset(28, 61, 112)
+            elseif (blue_goo_animation == 75) then
+                mset(28, 57, 113)
+                mset(28, 58, 113)
+                mset(28, 59, 113)
+                mset(28, 60, 113)
+                mset(28, 61, 114)
+                mset(28, 62, 121)
+            elseif (blue_goo_animation == 90) then
+                mset(28, 57, 96)
+                mset(28, 58, 96)
+                mset(28, 59, 96)
+                mset(28, 60, 96)
+                mset(28, 61, 112)
+                mset(28, 62, 121)
+            end
+            blue_goo_animation = blue_goo_animation + 1
+            if (blue_goo_animation == 105) then
+                blue_goo_animation = 75
+            end
+            if (blue_goo_animation >= 75 and blue_goo_animation <= 105) then
+                check_blue_goo_machine_collision()
+            end
+            if (blue_goo_animation == 110) then
+                sfx(44, -1)
+            elseif (blue_goo_animation == 230) then
+                blue_goo_animation = -1
+                bubble_power_enabled = true
+            end
+        end
+    end
+end
+
+function draw_bubble_powerup_get()
+    if (blue_goo_animation >= 110 and blue_goo_animation < 130) then
+        circ(player.x + 4, player.y + 4, 8, rnd(16))
+        circ(player.x + 4, player.y + 4, 7, rnd(16))
+    elseif (blue_goo_animation >= 130 and blue_goo_animation < 150) then
+        circ(player.x + 4, player.y + 4, 7, rnd(16))
+        circ(player.x + 4, player.y + 4, 6, rnd(16))
+    elseif (blue_goo_animation >= 150 and blue_goo_animation < 170) then
+        circ(player.x + 4, player.y + 4, 6, rnd(16))
+        circ(player.x + 4, player.y + 4, 5, rnd(16))
+        circ(player.x + 4, player.y + 4, 8, rnd(16))
+        circ(player.x + 4, player.y + 4, 7, rnd(16))
+    elseif (blue_goo_animation >= 170 and blue_goo_animation < 190) then
+        circ(player.x + 4, player.y + 4, 7, rnd(16))
+        circ(player.x + 4, player.y + 4, 6, rnd(16))
+    elseif (blue_goo_animation >= 190 and blue_goo_animation < 210) then
+        circ(player.x + 4, player.y + 4, 6, rnd(16))
+        circ(player.x + 4, player.y + 4, 5, rnd(16))
+    elseif (blue_goo_animation >= 210 and blue_goo_animation < 230) then
+        circ(player.x + 4, player.y + 4, 5, rnd(16))
+        circ(player.x + 4, player.y + 4, 4, rnd(16))
+    end
+end
+
+function check_blue_goo_machine_collision()
+    if (box_collision(player.x + 4, player.y + 4, 8, 8, 228, 500, 12, 12) and blue_goo_animation < 110 and
+        bubble_power_enabled == false) then
+        blue_goo_animation = 110
+        mset(28, 57, 2)
+        mset(28, 58, 2)
+        mset(28, 59, 2)
+        mset(28, 60, 2)
+        mset(28, 61, 120)
+        mset(28, 62, 117)
+    end
+end
+
+function update_electric_boxes()
+    for _, boxes in pairs(electric_boxes) do
+        local active_count = (boxes.max_count / 2)
+        if (boxes.direction == 'y') then
+            if ((boxes.count >= active_count and boxes.style=='osc') or boxes.style=='on') then
+                for i = boxes.sy, boxes.ey, 1 do
+                    if (boxes.count % 4 == 0) then
+                        if (i % 2 == 0) then
+                            mset(boxes.sx, i, 56)
+                        else
+                            mset(boxes.sx, i, 57)
+                        end
+                    else
+                        if (i % 2 == 0) then
+                            mset(boxes.sx, i, 57)
+                        else
+                            mset(boxes.sx, i, 56)
+                        end
+                    end
+                end
+                mset(boxes.sx, (boxes.sy - 1), 54)
+                mset(boxes.sx, (boxes.ey + 1), 55)
+            else
+                for i = boxes.sy, boxes.ey, 1 do
+                    mset(boxes.sx, i, 2)
+                end
+                mset(boxes.sx, (boxes.sy - 1), 50)
+                mset(boxes.sx, (boxes.ey + 1), 51)
+            end
+        end
+        if (boxes.direction == 'x') then
+            if ((boxes.count >= active_count and boxes.style=='osc') or boxes.style=='on') then
+                for i = boxes.sx, boxes.ex, 1 do
+                    if (boxes.count % 4 == 0) then
+                        if (i % 2 == 0) then
+                            mset(i, boxes.sy, 58)
+                        else
+                            mset(i, boxes.sy, 59)
+                        end
+                    else
+                        if (i % 2 == 0) then
+                            mset(i, boxes.sy, 59)
+                        else
+                            mset(i, boxes.sy, 58)
+                        end
+                    end
+                end
+                mset(boxes.sx - 1, boxes.sy, 52)
+                mset(boxes.ex + 1, boxes.sy, 53)
+            else
+                for i = boxes.sx, boxes.ex, 1 do
+                    mset(i, boxes.sy, 2)
+                end
+                mset(boxes.sx - 1, boxes.sy, 48)
+                mset(boxes.ex + 1, boxes.sy, 49)
+            end
+        end
+        boxes.count = boxes.count + 1
+        if (boxes.count > boxes.max_count) then
+            boxes.count = 0
+        end
+    end
+end
+
+function update_final_door()
+    if (final_door_animation <= 90 and final_door_animation > 0) then
+        if (final_door_animation == 1) then
+            music(-1)
+            sfx(26, -1)
+        end
+        if (final_door_animation == 30) then
+            mset(72, 36, 0)
+            mset(73, 36, 0)
+            mset(72, 35, 44)
+            mset(73, 35, 44)
+            mset(123, 34, 0)
+            mset(124, 34, 62)
+            mset(125, 34, 0)
+            mset(123, 33, 44)
+            mset(124, 33, 44)
+            mset(125, 33, 44)
+        end
+        if (final_door_animation == 60) then
+            mset(72, 35, 0)
+            mset(73, 35, 0)
+            mset(123, 33, 0)
+            mset(124, 33, 61)
+            mset(125, 33, 0)
+            mset(123, 32, 44)
+            mset(124, 32, 44)
+            mset(125, 32, 44)
+
+        end
+        if (final_door_animation == 90) then
+            mset(72, 35, 0)
+            mset(73, 35, 0)
+            mset(123, 33, 0)
+            mset(124, 33, 61)
+            mset(125, 33, 0)
+            mset(123, 32, 0)
+            mset(124, 32, 0)
+            mset(125, 32, 0)
+        end
+        final_door_animation = final_door_animation + 1
+    end
+end
+
+function update_seed_door()
+    if (seed_door_animation <= 90 and seed_door_animation > 0) then
+        if (seed_door_animation == 1) then
+            music(-1)
+            sfx(26, -1)
+        end
+        if (seed_door_animation == 30) then
+            mset(3, 30, 0)
+            mset(4, 30, 0)
+            mset(3, 29, 44)
+            mset(4, 29, 44)
+            mset(3, 28, 45)
+            mset(4, 28, 45)
+        end
+        if (seed_door_animation == 60) then
+            mset(3, 29, 0)
+            mset(4, 29, 0)
+            mset(3, 28, 44)
+            mset(4, 28, 44)
+        end
+        if (seed_door_animation == 90) then
+
+        end
+        seed_door_animation = seed_door_animation + 1
+    end
+end
+
+function process_hazard_hit_animation()
+    if (hazard_hit_animation == 5) then
+        sfx(2)
+    end
+    if (hazard_hit_animation > 5 and hazard_hit_animation < 10) then
+        pal(8, 2)
+
+    elseif (hazard_hit_animation > 10 and hazard_hit_animation < 15) then
+        pal(2, 5)
+
+    elseif (hazard_hit_animation > 20) then
+        pal(8, 1)
+    end
+end
+
+function _draw()
+    cls()
+    draw_map()
+    if (player.hazard_hit == false) then
+        if (player.debounce) then
+            pal(8, 9)
+        elseif btn(2) and bubble_power_enabled then
+            pal(8, 12)
+        else
+            pal()
+        end
+    end
+    draw_slime()
+    draw_letters()
+    draw_bubble_powerup_get()
+    draw_checkpoints()
+    handle_game_over_animation()
+    spr(player.ball_sprite_index, player.x, player.y, 1, 1, player.ball_sprite_flip_x, player.ball_sprite_flip_y)
+    draw_seed()
+    if (player.hazard_hit) then
+        process_hazard_hit_animation()
+    end
+
+end
+
+function draw_letters()
+    for _, letter in pairs(letters_to_draw) do
+        print(letter.letter, letter.x, letter.y, letter.color)
+    end
+end
+
+-- x_start,y_start,x_end,y_end,max_count,animation_count,sprite_x,sprite_y
+slime_drop_in_frames = 6
+slime_drop_in_frames_one_third = flr(slime_drop_in_frames / 3)
+slime_drop_in_frames_two_third = (flr(slime_drop_in_frames / 3) * 2)
+
+function slime_emitters()
+    slime_sprites_to_draw = {}
+    for i, slime in ipairs(slime_emitter_locations) do
+        local x_tile_start, y_tile_start, x_tile_end, y_tile_end, max_count, animation_count = unpack(slime)
+        animation_count = animation_count + 1
+        if (animation_count > max_count) then
+            animation_count = 0
+        end
+        local slime_sprite = slime_sprite_indexes[1]
+        local real_space_tiles = ((y_tile_end - y_tile_start) + 1)
+        local current_y_tile = flr(animation_count / slime_drop_in_frames)
+        local sprite_x = -1
+        local sprite_y = -1
+        -- only worry about slime drops which are visible
+        if (current_y_tile <= (real_space_tiles + 1)) then
+            local frame_remainder = animation_count % slime_drop_in_frames
+            if (current_y_tile == (real_space_tiles + 1)) then
+                sprite_x = x_tile_end * 8
+                sprite_y = y_tile_end * 8
+                if (frame_remainder < slime_drop_in_frames_one_third) then
+                    slime_sprite = slime_sprite_indexes[2]
+                elseif ((frame_remainder >= slime_drop_in_frames_one_third) and
+                    (frame_remainder < slime_drop_in_frames_two_third)) then
+                    slime_sprite = slime_sprite_indexes[3]
+                else
+                    slime_sprite = 0
+                end
+            else
+                sprite_x = x_tile_start * 8
+                if (frame_remainder < slime_drop_in_frames_one_third) then
+                    sprite_y = (y_tile_start * 8) + (8 * (current_y_tile - 1))
+                elseif ((frame_remainder >= slime_drop_in_frames_one_third) and
+                    (frame_remainder < slime_drop_in_frames_two_third)) then
+                    sprite_y = (y_tile_start * 8) + (8 * (current_y_tile - 1)) + 2
+                else
+                    sprite_y = (y_tile_start * 8) + (8 * (current_y_tile - 1)) + 4
+                end
+            end
+            add(slime_sprites_to_draw, {
+                x = sprite_x,
+                y = sprite_y,
+                sprite = slime_sprite
+            })
+            if (box_collision(player.x + 4, player.y + 4, player.width, player.height + 4, sprite_x + 4, sprite_y, 4, 6)) then
+                player.hazard_hit = true
+                hazard_hit_animation = 0
+            end
+        end
+        slime[6] = animation_count
+        slime_emitter_locations[i] = slime
+    end
+end
+
+function set_button_sprite(button)
+    if (button.state == true) then
+        mset(button.x, button.y, 47)
+    else
+        mset(button.x, button.y, 46)
+    end
+end
+
+function draw_slime()
+    for _, obj in pairs(slime_sprites_to_draw) do
+        spr(obj.sprite, obj.x, obj.y, 1, 1)
+    end
+end
+
+function draw_checkpoints()
+    for i, checkpoint in ipairs(checkpoint_locations) do
+        if (current_checkpoint == i) then
+            spr(checkpoint_sprites[2], checkpoint[1], checkpoint[2], 1, 1)
+        else
+            spr(checkpoint_sprites[1], checkpoint[1], checkpoint[2], 1, 1)
+        end
+    end
+end
+
+function draw_map()
+
+    if (player.y >= 0 and player.y < 128) then
+        camera_offset_y = 0
+        if (music_pattern_playing ~= 1 and game_over == false) then
+            music(1, -1)
+            music_pattern_playing = 1
+        end
+    elseif (player.y >= 128 and player.y < 254) then
+        camera_offset_y = 128
+        if (music_pattern_playing ~= 2) then
+            music(16, -1)
+            music_pattern_playing = 2
+        end
+        pal(12, 5)
+    elseif (player.y >= 254 and player.y < 512) then
+        pal(12, 1)
+        if (music_pattern_playing ~= 3) then
+            music(32, -1)
+            music_pattern_playing = 3
+        end
+        if (player.y <= 297) then
+            camera_offset_y = 254
+        elseif (player.y >= 468) then
+            camera_offset_y = 384
+        elseif (player.y > camera_y_bottom_boundry) then
+            camera_offset_y = (player.y - 84)
+            camera_y_bottom_boundry = player.y
+            camera_y_top_boundry = camera_y_bottom_boundry - 40
+        elseif (player.y < camera_y_top_boundry) then
+            camera_offset_y = (player.y - 44)
+            camera_y_top_boundry = player.y
+            camera_y_bottom_boundry = camera_y_top_boundry + 40
+        end
+    end
+
+    if (player.x < 127 and game_over == false) then
+        camera_offset_x = 0
+        music(-1, -1)
+        music_pattern_playing = -1
+    elseif (player.x >= 127 and player.x < 164) then
+        camera_offset_x = 120
+    elseif (player.x > camera_x_front_boundry and player.x <= 980) then
+        camera_offset_x = (player.x - 84)
+        camera_x_front_boundry = player.x
+        camera_x_back_boundry = camera_x_front_boundry - 40
+    elseif (player.x < camera_x_back_boundry and player.x >= 128) then
+        camera_offset_x = (player.x - 44)
+        camera_x_back_boundry = player.x
+        camera_x_front_boundry = camera_x_back_boundry + 40
+    elseif (player.x > 980) then
+        camera_offset_x = 896
+        camera_x_back_boundry = 940
+    end
+
+    -- log('back:' .. camera_x_back_boundry .. ' front:' .. camera_x_front_boundry)
+    if (camera_x_front_boundry < 212) then
+        camera_x_front_boundry = 212
+    end
+    if (camera_x_back_boundry < 0) then
+        camera_x_front_boundry = 0
+    end
+
+    camera(camera_offset_x, camera_offset_y)
+    map()
+end
+
+
+
+
 
 __gfx__
 00000000cccccccccccccccccccccccccccccccccccccccccccccccc00222200002222000022220000222200000000000000000000000000cccccccccccccccc
@@ -75,16 +1854,16 @@ cccd6666cccc939ccccd6666ddddddddddddddddd6d6d6d65554554555545555cccd666659595959
 6666a20000a29595959595202020206766b520202020202020767676202020202020202020202020202020922020d76723667623677723665656666777677767
 77677767776777667666762020202020202020202020202020202020202020202020202020202020202020202020202020202020202050502020b2d2d2d2b256
 7666a20000a295959595e5202020207777b520202020202020567777202020202020202020202020202020322020202020202020202020202056323232323256
-666782668266826777567720202020202020202020202020202020202020202020202050502020202020202020205050202020202050f3f32020b2d286d2b256
+668276827682766777567720202020202020202020202020202020202020202020202050502020202020202020205050202020202050f3f32020b2d286d2b256
 7766a20000a2959595e520202020205677b5202020a5a520206676762020a6f7e620202020202092202020322020202020202020202020202020202020202056
-5667e267e267e267565677202020202020202020202020202020202020202020202050f3f3202020202020202050f3f32020202020f3f3202020b2c2c2c2b256
+56e276e276e27667565677202020202020202020202020202020202020202020202050f3f3202020202020202050f3f32020202020f3f3202020b2c2c2c2b256
 7666a20000a29595e52020207620207756b52020e467672020565603202013f7f7f7f76666202032202020322020202020202020202020202056667632202020
-20202020202020b2d2d2b22020202020202020202020202020202020202020202020f3f3202020202020202020f3f32020202020202020202092424242424242
+20202020202020b286d2b22020202020202020202020202020202020202020202020f3f3202020202020202020f3f32020202020202020202092424242424242
 7766a20000a295e5202020207720207656b52020e47676202066667720206777566777f756202032202020202020202020202020202020202056567632202020
 20202020202020b2c2c2b22020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202092929292926777
 7666a20000a2e520202020207620205667b52020e4766720205667562020667666765677f720202020202020202066f733667633c37733667656565632202032
 c376e266e266e266766676202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020a6f7766677
-7766a20000a22020202020327720207666b52020e45666202020202020206777677766766676c3c3c3c376766656f76656567666567777677756565632323276
+7766a20000a22020202020327720207666b52020e45666202020202020206777677766766676c3c3c35676766656f76656567666567777677756565632323276
 56667267726672567656562020202020202020202020505020202020202020202020202020202020202020202020202020202020202020202020a6f7f7767756
 7695a20000a22020202020767620207756b52020e456f72020202020202066765656677756565656677777667676566676665667667677677756567767776777
 77677767776777677756f62020a5a5a5202020202050f3f320202020929292922020929292202020202020202020202020202020202020202020f77767765656
@@ -206,27 +1985,27 @@ __label__
 66666667ccccccccccccccccc77777777777777ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66660666
 676666665cccccccccccccccccc77777777777ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566766666
 66606660cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666606
-666666665cccccccccccccccccccccccccccccccccccccccccccccccccccc2222cccccccccccccccccccccccccccccccccccccccccccccccccccccc560667666
-66676606cccccccccccccccccccccccccccccccccccccccccccccccccccc288882cccccccccccccccccccccccccccccccccccccccccccccccccccccc66666666
-666666665cccccccccccccccccccccccccccccccccccccccccccccccccc28888882cccccccccccccccccccccccccccccccccccccccccccccccccccc566666666
-66666666ccccccccccccccccccccccccccccccccccccccccccccccccccc28888882ccccccccccccccccccccccccccccccccccccccccccccccccccccc66666666
-606606665cccccccccccccccccccccccccccccccccccccccccccccccccc28788882cccccccccccccccccccccccccccccccccccccccccccccccccccc566606666
-66666667ccccccccccccccccccccccccccccccccccccccccccccccccccc28778882ccccccccccccccccccccccccccccccccccccccccccccccccccccc66666676
-676666665ccccccccccccccccccccccccccccccccccccccccccccccccccc288882ccccccccccccccccccccccccccccccccccccccccccccccccccccc566766666
-66606660ccccccccccccccccccccccccccccccccccccccccccccccccccccc2222ccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666766
+666666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc560667666
+66676606cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666666
+666666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566666666
+66666666cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666666
+606606665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566606666
+66666667cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666676
+676666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566766666
+66606660cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666766
 666666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566066666
 66676606cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc76666606
 666666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566666666
 66666666cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666666
 666066665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc560660666
-66666676cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666667
-667666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc567666666
-66666766cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66606660
-660666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566666666
-76666606cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66676606
-666666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566666666
-66666666cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666666
-606606665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566606666
+66666676cccccccccccccccccccccccccccccccccccccccccccccccccccccccccc2222cccccccccccccccccccccccccccccccccccccccccccccccccc66666667
+667666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccc288882cccccccccccccccccccccccccccccccccccccccccccccccc567666666
+66666766cccccccccccccccccccccccccccccccccccccccccccccccccccccccc28888882cccccccccccccccccccccccccccccccccccccccccccccccc66606660
+660666665ccccccccccccccccccccccccccccccccccccccccccccccccccccccc28888882ccccccccccccccccccccccccccccccccccccccccccccccc566666666
+76666606cccccccccccccccccccccccccccccccccccccccccccccccccccccccc28888782cccccccccccccccccccccccccccccccccccccccccccccccc66676606
+666666665ccccccccccccccccccccccccccccccccccccccccccccccccccccccc28887782ccccccccccccccccccccccccccccccccccccccccccccccc566666666
+66666666ccccccccccccccccccccccccccccccccccccccccccccccccccccccccc288882ccccccccccccccccccccccccccccccccccccccccccccccccc66666666
+606606665ccccccccccccccccccccccccccccccccccccccccccccccccccccccccc2222ccccccccccccccccccccccccccccccccccccccccccccccccc566606666
 66666667cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666676
 676666665cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc566766666
 66606660cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc66666766
@@ -287,12 +2066,12 @@ __map__
 1310030303030302020303030303031a030303030303030303030303030612100303030612100612591413135a5a5a1314581312131415121314151213141512131415121314151213121314155b030303031a1a1a1a1a1a1a0303030303064c4c1003061412100306131416034d5d1414141413131415161114594814141212
 141213141512131f1f12131213141514151312121314151213141214131412131313121314151212591412121314151213141512121314151212131213141512131415121314151213141513131312131415131313131313121314151213141513141415121314151213144c125d141512131415141414161114594814151212
 595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959594b59595959594b595959595959595959595912161112594814151414
-595959595959595e5e5959595959595959020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202025959590202020202595916191919191902191919191919191919175912161112594813151514
-595902020202020202020202020259595902020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202252426022524246d595902020202020202020202020202020202115915161112594813141314
-595902020202020202020202020259595b02026a6959595959595959595959595959595959595959595959595959595959595959595959595959696e020202020202020202020202020202020202020202020202020259696e02020202020223286c595916020202020202020202020202020202115915161112594813151414
-592e0202020202020202020202022e595b02025959595959595959595959595959595959595959595959595959595959595959595959595959595969020202020202020202020202020202020202020202020202024d5969696e230202020223276c595916020303030303030303030303030302115912161112594813141314
-595902020202020202020202020259696e02020202020202020202020202020202020202020202020202020202020202020202020202020202595959020202020202020202020202020202020202020202020202021259595912252424242424246b59591611131413154c14131314131413131611591516111259165f151514
-595902020202020202020202020259596959595959595959595959595959595959595959595959595959595959595959595959595959590202595959020202020202020202020202020202020202020202020202025f4b14121314121312134f02025959161159595959595959595959595959161159121611125916025e5e14
+595959595959595e5e59595959595959590202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202027d326f022524242424242424242424242426020202595916191919191902191919191919191919175912161112594813151514
+59590202020202020202020202025959590202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202024d5d14141213141512131412131415020202595902020202020202020202020202020202115915161112594813141314
+595902020202020202020202020259595b02026a6959595959595959595959595959595959595959595959595959595959595959595959595959696e0202020202020202020202020202020202020202145d14020202020202020202020202020202595916020202020202020202020202020202115915161112594813151414
+592e0202020202020202020202022e595b020259595959595959595959595959595959595959595959595959595959595959595959595959595959690202020202020202020202020202020202020202141475020202020202020202020202020202595916020303030303030303030303030302115912161112594813141314
+595902020202020202020202020259696e0202020202020202020202020202020202020202020202020202020202020202020202020202020259595902020202020202020202020202020202020202021414140202025a02020202025a020202020259591611131413154c14131314131413131611591516111259165f151514
+59590202020202020202020202025959695959595959595959595959595959595959595959595959595959595959595959595959595959020259595902020202020202020202020202020202020202025f13141314154b141213141213124f0202025959161159595959595959595959595959161159121611125916025e5e14
 5959020202020202020202020202595959292929292929292929292929292929020202020202020202020202020202020202020202020202025959590202020202020202020202020202020202020202020202020202020202020202020202020202595916115959595959696959595969695916115914161112591602021114
 595902020202020202020202020259595902020202020202020202020202020202020202020202020202020202020202020202020202020202595959020202020202020202020202020202020202020202020202020202020202020202020202026a695916115959595959595959595959595916115914161112591602021114
 595902020202020202020202020259595902020202020202020202020202020202020202020202020202020202020202020202020202020202595959020202020223020202020202230202020202020202020202020202026a6959595959595959695959160219191919191919191919195959161159154c4c12591003021114
@@ -300,7 +2079,7 @@ __map__
 59592b2b2b2b020202020202020259595902020202020202020202020202020202020202020202020202020202020202020202022a02020202595959020202020202020202020202020202020202020202020202020202020202020202020202020259594b141314135a5a141314130202595916115959595959595959161114
 59592b682d2b020202020202020259595902020202020202020202020202020202020202020202020202020228020202020202022a020202025959590202020202020202020202020202020202020202020202020202020202020202020202020202595959595959595959595959590202595916021919191919191919021159
 59592b2d2d2b0202020202020202020202026a2302020202020202020202236e0202020202020202020202022a020202020202022a02020202595959020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020259696e030303030303030303036a69
-59592b2c2c2b0202020202020202020202025923235a5a5a2323235a5a23235902020202594c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c5902025959595a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a696e02020202020202020202020202020202026a595959595959595959595959595959595969595959595959595959596959
+59592b2c2c2b0202020202020202020202025923235a5a5a2323235a5a23235902020202594c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c5902025959595a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a33696e020202020202020202020202020202026a595959595959595959595959595959595969595959595959595959596959
 5959280000285959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959595959
 __sfx__
 010400000c5510e55113551155510050100501005010050115551115510e5510c55100501005010000000000243522635228352293522b3522d35200000000002d3512b351293512835126351243510000000000
@@ -330,26 +2109,26 @@ c51000001a7202672000700267201d720267201d720007001a7202672000700267201d7200e70005
 c5100000187202472000700247201b720247201b7200f700187202472000700247201b7200c700037000f700187002470000700247001b700247001b7000f700187002470000700247001f7001f7001f70000700
 c51000001a7202672000700267201d720267201d720007001a7202672000700267201d7200e70005700007001a7002670000700267001d700267001d700007001a70026700007002670024700247002470000700
 310c00000c15318153241530f1030f1030f1030e1030e10318153181530c1530c1530c15311103151030c1030c1530c153101030c1530c153161030c1530c1530c1530c15312103181530c1530c1000c1530c153
-191200000e0430000000000000000e0430000000000000000e0430000000000000000e0430000000000000000e0430000000000000000e0430000000000000000e0430000000000000000e043000000000000000
-191200000e0430000000000000000e0430000000000000000e0430000000000000000e0430000000000000000e0430000000000000000e0430000000000000000e0430000000000000000e000000000000000000
+191200000e0330000000000000000e0330000000000000000e0330000000000000000e0330000000000000000e0330000000000000000e0330000000000000000e0330000000000000000e033000000000000000
+191200000e0330000000000000000e0330000000000000000e0330000000000000000e0330000000000000000e0330000000000000000e0330000000000000000e0330000000000000000e000000000000000000
 191200000e0331a4001a623000000e0331a6001a623000000e0331a4001a623000000e0331a6001a623000000e0331a4001a623000000e0331a6001a623000000e0331a4001a623000000e0331a6001a62300000
-091200001143011400124001140011400114000040000400004000040000400004000040000400004000040011430114001140011400114001140011400114001140011400114001140010400114001340011400
-011200001143011430144301443016430164301643018430164301643014430144301143011430114300000011430114301443014430164301643016430184301643016430164300000000000114001140011400
-011200001143011430144301443016430164301643018430164301443011430114301443014430144301443011430114300f4300f4300f4300f43010430104301143011430114301143011400114000000000000
-011200001d4301d4301d4301d430184301843018430184301b4301b4301b4301b430184301843018430184301d4301d43018430184301b4301b43018430184301f4301f4301d4301d4301b4301b4301843018430
-011200001d4301d4301d4301d430184301843018430184301b4301b4301b4301b430184301843018430184301d4301b43018430184301643016430184301b4301843018430144301443011430114301143011400
-011200000533000000000000000000000000000000000000000000000000000000000000000000000000000005330000000533000000000000000000000000000000000000000000000000000000000000000000
-011200000533000000000000000005330000000000000000053300000000000000000533000000000000000005330000000530000000053300000000000000000533000000000000000005330000000000000000
-191200000e033000001a623000000e0331a4001a623000000e033000001a623000000e0331a5001a623000000e033000001a623000000e0331a7001a623000000e033000001a623000000e033000001a60000000
-011200000533000000053300000005330000000533000000053300000005330000000533000000053300000005330000000533000000053300000005330000000533000000053300000005330000000533000000
-011200001143511435114351640511432114051143511435114051143511435144051143211432114051140511435114351143516405114321140511435114351140511435114351440511432114320040500405
-011200001143505235114350000005332000001143505235053001143505335000001143205332053000000011435052351143500000053320000011435052350520011435053350000011432053321143200000
-011200001d4351d4351d435224051d4321d4051d4351d4351d4051d4351d435204051d4321d4321d4051d4051d4351d4351d435224051d4321d4051d4351d4351d4051d4351d435204051d4321d4320040500405
-011200000533505335053350533505335053350533505335053350533505335053350533505335053350533505335053350533505335053350533505335053350533505335053350533505335053350533505335
-011200000543505435054350040505435004050543505435054050543505435004050543505435054050543505435054350543500405054350040505435054350540505435054350040505435054350543505400
-211000001b552225522a552305523355237552395523b5523b5523855235552325522e552295522555220552235522555227552285522955229552225521d5521155213552135521555217552165521655216552
+091200001122011400124001140011400114000040000400004000040000400004000040000400004000040011220114001140011400114001140011400114001140011400114001140010400114001340011400
+011200001142011420144201442016420164201642018420164201642014420144201142011420114200000011420114201442014420164201642016420184201642016420164200000000000114001140011400
+011200001142011420144201442016420164201642018420164201442011420114201442014420144201442011420114200f4200f4200f4200f42010420104201142011420114201142011400114000000000000
+011200001d4201d4201d4201d420184201842018420184201b4201b4201b4201b420184201842018420184201d4201d42018420184201b4201b42018420184201f4201f4201d4201d4201b4201b4201842018420
+011200001d4201d4201d4201d420184201842018420184201b4201b4201b4201b420184201842018420184201d4201b42018420184201642016420184201b4201842018420144201442011420114201142011400
+011200000532000000000000000000000000000000000000000000000000000000000000000000000000000005320000000532000000000000000000000000000000000000000000000000000000000000000000
+011200000532000000000000000005320000000000000000053200000000000000000532000000000000000005320000000530000000053200000000000000000532000000000000000005320000000000000000
+191200000e023000001a623000000e0231a4001a623000000e023000001a623000000e0231a5001a623000000e023000001a623000000e0231a7001a623000000e023000001a623000000e023000001a60000000
+011200000532000000053200000005320000000532000000053200000005320000000532000000053200000005320000000532000000053200000005320000000532000000053200000005320000000532000000
+011200001142511425114251640511422114051142511425114051142511425144051142211422114051140511425114251142516405114221140511425114251140511425114251440511422114220040500405
+011200001142505225114250000005322000001142505225053001142505325000001142205322053000000011425052251142500000053220000011425052250520011425053250000011422053221142200000
+011200001d4251d4251d425224051d4221d4051d4251d4251d4051d4251d425204051d4221d4221d4051d4051d4251d4251d425224051d4221d4051d4251d4251d4051d4251d425204051d4221d4220040500405
+011200000532505325053250532505325053250532505325053250532505325053250532505325053250532505325053250532505325053250532505325053250532505325053250532505325053250532505325
+011200000542505425054250040505425004050542505425054050542505425004050542505425054050542505425054250542500405054250040505425054250540505425054250040505425054250542505400
+211000001b532225322a532305323353237532395323b5323b5323853235532325322e532295322553220532235322553227532285322953229532225321d5321153213532135321553217532165321653216532
 01120000291222912229100000022910029100291002912229100291222912229100291000000200002000022912229122000020000229100291000000229122291002912229100291251d125291252910000002
-00120000291222912229100000022910029100291002912229100291222910029125291252912500002000022912229122000020000229100291000000229122291002912229100291251d125291252910000002
+01120000291222912229100000022910029100291002912229100291222910029125291252912500002000022912229122000020000229100291000000229122291002912229100291251d125291252910000002
 0112000024125261252812529125291252912500005000052412526125281252912529125291250000500005241252612528125291252b125291252b125291252412528125281252612500005260252810026025
 01120000241252612528125291252d125291250010500105241252612528125291252d1252912500105001052412526125281252912528125291252d1252d1252b12528125291252d12526000261252900029125
 011200001162505625056250562505625056250562505625056250562505625056250562505625056250562505625056250562505625056250562505625056250562505625056250562505625056250562500000

@@ -16,7 +16,7 @@ function _init()
     letters_to_draw = {}
     button_sets = {{
         buttons = {{
-            x = 66,
+            x = 65,
             y = 34,
             state = false,
             timeout = 30,
@@ -28,8 +28,8 @@ function _init()
             timeout = 30,
             always_on = true
         }, {
-            x = 68,
-            y = 34,
+            x = 67,
+            y = 34, 
             state = false,
             timeout = 30,
             always_on = true
@@ -40,7 +40,7 @@ function _init()
             timeout = 30,
             always_on = true
         }, {
-            x = 70,
+            x = 69 ,
             y = 34,
             state = false,
             timeout = 30,
@@ -135,6 +135,16 @@ function _init()
         }},
         label = 'blue_goo',
         blue_goo_open = false
+    },{
+        buttons = {{
+            x = 82,
+            y = 20,
+            state = false,
+            timeout = 30,
+            always_on = true
+        }},
+        label = 'laser_switch',
+        laser_switch_activated = false
     }}
     final_door_animation = 0
     seed_captured = false
@@ -152,6 +162,7 @@ function _init()
         ey = 51,
         direction = 'y',
         max_count = 90,
+        style = 'osc',
         count = 0
     }, {
         sx = 76,
@@ -160,6 +171,7 @@ function _init()
         ey = 48,
         direction = 'x',
         max_count = 90,
+        style = 'osc',
         count = 0
     }, {
         sx = 76,
@@ -168,6 +180,7 @@ function _init()
         ey = 45,
         direction = 'x',
         max_count = 45,
+        style = 'osc',
         count = 0
     }, {
         sx = 27,
@@ -176,6 +189,7 @@ function _init()
         ey = 35,
         direction = 'x',
         max_count = 60,
+        style = 'osc',
         count = 0
     }, {
         sx = 48,
@@ -184,6 +198,7 @@ function _init()
         ey = 36,
         direction = 'y',
         max_count = 145,
+        style = 'osc',
         count = 0
     }, {
         sx = 51,
@@ -191,6 +206,7 @@ function _init()
         ex = 51,
         ey = 36,
         direction = 'y',
+        style = 'osc',
         max_count = 90,
         count = 0
     }, {
@@ -198,9 +214,20 @@ function _init()
         sy = 33,
         ex = 54,
         ey = 36,
+        style = 'osc',
         direction = 'y',
         max_count = 120,
         count = 0
+    }, {
+        sx = 78,
+        sy = 17,
+        ex = 78,
+        ey = 30,
+        direction = 'y',
+        max_count = 160,
+        count = 0,
+        style = 'on',
+        label = 'laser_switch_pair'
     }}
 
     -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
@@ -210,7 +237,7 @@ function _init()
     slime_sprite_indexes = {32, 33, 34}
     -- x,y,sprite#
     slime_sprites_to_draw = {}
-    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {992, 192}, {752, 224}, {448, 168}, {88, 216}, {136, 488}}
+    checkpoint_locations = {{136, 24}, {345, 16}, {704, 16}, {992, 192}, {752, 224}, {448, 168}, {88, 216}, {136, 490}}
     checkpoint_sprites = {73, 74}
     rolling_ball_indexes = {7, 8, 9, 10}
     x_squish_ball_indexes = {27, 28, 29}
@@ -590,6 +617,15 @@ function update_buttons()
                     final_door_animation = 1
                     bset.final_door_open = true
                 end
+            elseif (bset.label == 'laser_switch') then
+                if (bset.laser_switch_activated == false) then
+                    bset.laser_switch_activated  = true
+                    for _,box in pairs(electric_boxes) do
+                        if(box.label=='laser_switch_pair')then
+                            box.style = 'off'
+                        end
+                    end
+                end
             end
         end
     end
@@ -698,7 +734,7 @@ function update_electric_boxes()
     for _, boxes in pairs(electric_boxes) do
         local active_count = (boxes.max_count / 2)
         if (boxes.direction == 'y') then
-            if (boxes.count >= active_count) then
+            if ((boxes.count >= active_count and boxes.style=='osc') or boxes.style=='on') then
                 for i = boxes.sy, boxes.ey, 1 do
                     if (boxes.count % 4 == 0) then
                         if (i % 2 == 0) then
@@ -725,7 +761,7 @@ function update_electric_boxes()
             end
         end
         if (boxes.direction == 'x') then
-            if (boxes.count >= active_count) then
+            if ((boxes.count >= active_count and boxes.style=='osc') or boxes.style=='on') then
                 for i = boxes.sx, boxes.ex, 1 do
                     if (boxes.count % 4 == 0) then
                         if (i % 2 == 0) then
