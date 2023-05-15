@@ -1,8 +1,9 @@
 -- pico8_import utilities.lua
 function _init()
-    log('bouncy init called')
+    -- log('bouncy init called')
     terrain_flag = 0x2
-    bubble_power_enabled = true
+    bubble_power_enabled = false
+    death_count = 0
     hazard_flag = 0x4
     camera_offset_x = 0
     camera_offset_y = 0
@@ -136,7 +137,7 @@ function _init()
         blue_goo_open = false
     }}
     final_door_animation = 0
-    seed_captured = true
+    seed_captured = false
     game_over_animation = 0
     game_over = false
     last_slope_flag_used = sloped_terrain_l_flag
@@ -205,8 +206,7 @@ function _init()
     -- tile_start_x,tile_start_y,tile_end_x,tile_end_y,max_count,animation_count            
     slime_emitter_locations = {{100, 17, 100, 26, 72, 0}, {106, 17, 106, 20, 90, 0}, {86, 23, 86, 30, 90, 0},
                                {11, 41, 11, 49, 140, 0}, {11, 41, 11, 49, 140, 0}, {126, 41, 126, 61, 200, 0},
-                               {99, 44, 99, 44, 70, 0}, {104, 44, 104, 45, 70, 0}, {107, 44, 107, 45, 60, 0},
-                               {109, 44, 109, 45, 120, 0}}
+                               {99, 44, 99, 44, 70, 0}, {104, 44, 104, 45, 70, 0},{109, 44, 109, 45, 120, 0}}
     slime_sprite_indexes = {32, 33, 34}
     -- x,y,sprite#
     slime_sprites_to_draw = {}
@@ -261,9 +261,6 @@ function _init()
     }
     player = shallow_copy(player_defaults)
 
-    player.x = 16
-    player.dx = 16
-
 end
 
 function get_user_input(player)
@@ -308,9 +305,9 @@ function get_user_input(player)
     else
         player.debounce = false
     end
-    if btn(5) then
-        player.hazard_hit = true
-    end
+    -- if btn(5) then
+    --     player.hazard_hit = true
+    -- end
 
 end
 
@@ -388,6 +385,7 @@ end
 
 function reset_player()
     pal()
+    death_count = death_count + 1
     player = shallow_copy(player_defaults)
     camera_x_front_boundry = 212
     camera_x_back_boundry = 0
@@ -448,9 +446,80 @@ function update_seed_status()
             game_over = true
             seed_captured = false
             game_over_animation = 1
-            mset(15,14,20)
-            mset(14,14,6)
+            mset(15, 14, 20)
+            mset(14, 14, 6)
 
+        end
+    end
+end
+
+function handle_game_over_animation()
+    if (game_over == true and game_over_animation > 0) then
+        if (game_over_animation == 1) then
+            sfx(47, -1)
+        elseif (game_over_animation == 30) then
+            mset(7, 14, 124)
+            mset(8, 14, 124)
+        elseif (game_over_animation == 90) then
+            mset(7, 14, 123)
+        elseif (game_over_animation == 150) then
+            mset(7, 13, 122)
+            sfx(48, -1)
+        elseif (game_over_animation == 300) then
+            music(57, -1)
+        else
+            if (game_over_animation >= 301) then
+                print('A GAME BY BROOMMOSS', 24, 60, 11)
+                print('A GAME BY BROOMMOSS', 25, 61, 0)
+            end
+            if (game_over_animation >= 420) then
+                print('YOU DIED ' .. death_count .. ' TIMES', 29, 70, 0)
+                print('YOU DIED ' .. death_count .. ' TIMES', 30, 71, 7)
+            end
+            if (game_over_animation >= 540) then
+                if (death_count == 0) then
+                    print('RANK S : BETTER THAN MOSS', 14, 82, 0)
+                    print('RANK S : BETTER THAN MOSS', 15, 82, 11)
+                    circ(player.x + 3, player.y + 3, 8, 7)
+                    circ(player.x + 3, player.y + 3, 7, 10)
+                    circ(player.x + 3, player.y + 3, 6, 7)
+                    circ(player.x + 3, player.y + 3, 5, 10)
+                elseif (death_count >= 1 and death_count < 10) then
+                    print('RANK A : APEX BOUNCER', 20, 81, (9))
+                    print('RANK A : APEX BOUNCER', 21, 82, (10))
+                elseif (death_count >= 10 and death_count < 30) then
+                    print('RANK B : BONIFIED BOUNCER', 14, 81, (9))
+                    print('RANK B : BONIFIED BOUNCER', 15, 82, (10))
+                elseif (death_count >= 30 and death_count < 50) then
+                    print('RANK C : CERTIFIED BOUNCER', 12, 81, (0))
+                    print('RANK C : CERTIFIED BOUNCER', 13, 82, (7))
+                elseif (death_count >= 50 and death_count < 60) then
+                    print('RANK D : DARING BOUNCER', 18, 81, (0))
+                    print('RANK D : DARING BOUNCER', 19, 82, (7))
+                elseif (death_count >= 60 and death_count < 70) then
+                    print('RANK F : FAMOUS BOUNCER', 18, 81, (0))
+                    print('RANK F : FAMOUS BOUNCER', 19, 82, (7))
+                elseif (death_count >= 70 and death_count < 80) then
+                    print('RANK G : GOOD BOUNCER', 20, 81, (0))
+                    print('RANK G : GOOD BOUNCER', 21, 82, (7))
+                elseif (death_count >= 80 and death_count < 90) then
+                    print('RANK H : HARDY BOUNCER', 19, 81, (0))
+                    print('RANK H : HARDY BOUNCER', 20, 82, (7))
+                elseif (death_count >= 90 and death_count < 100) then
+                    print('RANK J : JOVIAL BOUNCER', 18, 81, (0))
+                    print('RANK J : JOVIAL BOUNCER', 19, 82, (7))
+                elseif (death_count >= 100) then
+                    print('RANK K : KINDLY BOUNCER', 18, 81, (0))
+                    print('RANK K : KINDLY BOUNCER', 19, 82, (7))
+                end
+            end
+            if (game_over_animation >= 800) then
+                print('THANKS FOR PLAYING!', 24, 91, 11)
+                print('THANKS FOR PLAYING!', 25, 92, 0)
+            end
+        end
+        if (game_over_animation < 1000) then
+            game_over_animation = game_over_animation + 1
         end
     end
 end
@@ -779,7 +848,7 @@ function _draw()
     draw_letters()
     draw_bubble_powerup_get()
     draw_checkpoints()
-
+    handle_game_over_animation()
     spr(player.ball_sprite_index, player.x, player.y, 1, 1, player.ball_sprite_flip_x, player.ball_sprite_flip_y)
     draw_seed()
     if (player.hazard_hit) then
@@ -880,7 +949,7 @@ function draw_map()
 
     if (player.y >= 0 and player.y < 128) then
         camera_offset_y = 0
-        if (music_pattern_playing ~= 1) then
+        if (music_pattern_playing ~= 1 and game_over == false) then
             music(1, -1)
             music_pattern_playing = 1
         end
@@ -912,7 +981,7 @@ function draw_map()
         end
     end
 
-    if (player.x < 127) then
+    if (player.x < 127 and game_over == false) then
         camera_offset_x = 0
         music(-1, -1)
         music_pattern_playing = -1
