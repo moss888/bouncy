@@ -305,9 +305,9 @@ function get_user_input(player)
     else
         player.debounce = false
     end
-    if btn(5) then
-        player.hazard_hit = true
-    end
+    -- if btn(5) then
+    --     player.hazard_hit = true
+    -- end
 
 end
 
