@@ -1,6 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
+--bouncy by broommoss
+--⬅️➡️⬇️ to move. x,z to debounce
 #include bouncy/bouncy_util.lua
 #include bouncy/bouncy_move.lua
 #include bouncy/bouncy_main.lua
