@@ -44,10 +44,6 @@ function move_x(player)
             handle_slope_collision_left_x(collision_result)
         elseif (collision_result.flag & sloped_terrain_r_flag > 0) then
             handle_slope_collision_right_x(collision_result)
-        elseif ((collision_result.flag & top_only_collision_flag > 0)) then
-            calculate_top_only_collision_terrain(collision_result)
-            player.colliding_x = false
-            player.x = player.dx
         elseif ((collision_result.flag & bouncy_terrain_flag) > 0) then
             handle_bouncy_collision_x(collision_result)
         elseif ((collision_result.flag & terrain_flag > 0)) then
@@ -61,6 +57,10 @@ function move_x(player)
             calculate_stored_energy_x()
             player.dx = player.x
             player.speed_x = 0
+        elseif ((collision_result.flag & top_only_collision_flag > 0)) then
+            calculate_top_only_collision_terrain(collision_result)
+            player.colliding_x = false
+            player.x = player.dx
         else
             player.colliding_x = false
             player.x = player.dx
@@ -122,7 +122,9 @@ function move_y(player)
             -- normal terrain
             player.colliding_y = true
             player.y = collision_result.collision_y
-            calculate_top_only_collision_terrain(collision_result)
+            if((collision_result.flag & terrain_flag == 0))then
+                calculate_top_only_collision_terrain(collision_result)
+            end
             calculate_stored_energy_y()
             player.dy = player.y
             player.speed_y = 0

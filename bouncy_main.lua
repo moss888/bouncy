@@ -142,7 +142,7 @@ function _init()
     game_over = false
     last_slope_flag_used = sloped_terrain_l_flag
     slope_speed_threshold = 4
-    current_checkpoint = 8
+    current_checkpoint = -1
     rolling_ball_index_count = 1
     -- electric boxes (tile_start_x,tile_start_y,tile_end_x,tile_end_y,alignment,max_count,animation_count)
     electric_boxes = {{
@@ -305,9 +305,9 @@ function get_user_input(player)
     else
         player.debounce = false
     end
-    -- if btn(5) then
-    --     player.hazard_hit = true
-    -- end
+    if btn(5) then
+        player.hazard_hit = true
+    end
 
 end
 
@@ -428,13 +428,24 @@ function _update()
         non_physical_collisions()
         slime_emitters()
         apply_friction(player)
+        check_oob()
     end
 
 end
 
+function check_oob()
+    if(player.x < -8 or player.y < -8 or player.x > 1024 or player.y > 520)then
+        player.hazard_hit = true
+        hazard_hit_animation = 0
+    end
+end
+
+
+
+
 function update_seed_status()
-    if (seed_captured == false) then
-        if (box_collision(player.x + 4, player.y + 4, 8, 8, 988, 268, 8, 8) == true) then
+    if (seed_captured == false and (final_door_animation > 0)) then
+        if (box_collision(player.x + 4, player.y + 4, 8, 8, 996, 268, 6, 6) == true) then
             seed_captured = true
             mset(124, 33, 0)
             mset(124, 34, 0)
@@ -442,7 +453,7 @@ function update_seed_status()
             blue_goo_animation = 109
         end
     else
-        if (box_collision(player.x + 4, player.y + 4, 8, 8, 64, 120, 16, 8) == true) then
+        if (seed_captured == true and box_collision(player.x + 4, player.y + 4, 8, 8, 64, 120, 16, 8) == true and final_door_animation > 0) then
             game_over = true
             seed_captured = false
             game_over_animation = 1
@@ -633,7 +644,7 @@ function update_blue_goo()
             if (blue_goo_animation == 105) then
                 blue_goo_animation = 75
             end
-            if (blue_goo_animation >= 75 and blue_goo_animation <= 90) then
+            if (blue_goo_animation >= 75 and blue_goo_animation <= 105) then
                 check_blue_goo_machine_collision()
             end
             if (blue_goo_animation == 110) then
